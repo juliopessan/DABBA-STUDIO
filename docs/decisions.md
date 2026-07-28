@@ -16,3 +16,16 @@
   @business-case), portadas para módulos TypeScript no agent-server.
 - **Pendente de decisão:** modelo de conectores (MCP vs. integrações diretas),
   estratégia de auto-update, code signing.
+
+## 2026-07-28 — Registry de agentes
+
+- Personas dos 5 agentes copiadas de `DPABB-Framework/agents/*.md` para
+  `agent-server/personas/*.md` — cópia própria, sem depender de caminho
+  externo ao repositório (produto agora é independente).
+- `agent-server/src/agents/loader.ts` faz parsing genérico do markdown
+  (cabeçalho `# @id — Nome` e lista de comandos em `## Comandos`) em vez de
+  hardcodar cada agente — evita duplicação e ficar defasado se a persona
+  mudar.
+- Endpoints expostos: `GET /health`, `GET /agents`, `GET /agents/:id`.
+- Ainda não implementado: execução real de comandos (`*start`, `*generate`,
+  etc.) via LLM — por enquanto o server só serve a persona/metadados.
