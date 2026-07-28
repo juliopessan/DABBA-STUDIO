@@ -24,7 +24,7 @@ function inline(text: string): string {
 // mais de 2 marcadores — nesse caso cada fence deve ser tratado
 // individualmente pelo parser, não descartado como se fosse um wrapper
 // único (fazer isso quebra o pareamento de todos os fences internos).
-function unwrapOuterCodeFence(markdown: string): string {
+export function unwrapOuterCodeFence(markdown: string): string {
   const fenceLine = /^\s*```[a-z]*\s*$/im;
   const lines = markdown.split("\n");
   const fenceIndexes = lines.reduce<number[]>((acc, line, i) => {
@@ -119,14 +119,17 @@ export function markdownToHtml(markdown: string): string {
       flushParagraph();
       closeAllLists();
       const header = splitTableRow(line);
-      html.push("<table><thead><tr>" + header.map((c) => `<th>${inline(c)}</th>`).join("") + "</tr></thead><tbody>");
+      // Envolve em div com scroll horizontal próprio — colunas como
+      // "Justificativa" (Plano de Staffing) podem ter texto longo o
+      // suficiente para forçar a tabela além da largura do documento.
+      html.push('<div class="table-wrap"><table><thead><tr>' + header.map((c) => `<th>${inline(c)}</th>`).join("") + "</tr></thead><tbody>");
       i += 2;
       while (i < lines.length && TABLE_ROW.test(lines[i])) {
         const cells = splitTableRow(lines[i]);
         html.push("<tr>" + cells.map((c) => `<td>${inline(c)}</td>`).join("") + "</tr>");
         i++;
       }
-      html.push("</tbody></table>");
+      html.push("</tbody></table></div>");
       continue;
     }
 

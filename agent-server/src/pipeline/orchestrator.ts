@@ -2,6 +2,7 @@ import { getAgent } from "../agents/registry.js";
 import { runAgentCommand } from "../llm/provider.js";
 import { createRun, saveArtifact, updateRunStatus, getArtifacts, getRun, type PipelineRun } from "../db/sqlite.js";
 import { buildConsolidatedReport } from "./htmlReport.js";
+import { unwrapOuterCodeFence } from "./markdown.js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,14 +12,20 @@ const OUTPUT_DIR = path.resolve(__dirname, "../../data/output");
 
 // Ordem oficial do pipeline DABBA (Discovery → PRD → Architect → Backlog →
 // Business Case), documentada no CLAUDE.md do framework original — cada
-// fase usa o comando principal de geração do agente e recebe o artefato
-// da fase anterior como premissa/contexto.
+// fase usa o(s) comando(s) de geração do agente e recebe o artefato da fase
+// anterior como premissa/contexto.
+//
+// Backlog encadeia 3 comandos (não 1): modelos free tendem a esquecer
+// seções quando um único prompt pede Epics + Effort Estimation + Staffing
+// de uma vez (testado: nvidia/nemotron-nano-9b ignorou as duas últimas
+// seções mesmo com instrução explícita). Pedir cada seção como um comando
+// separado, encadeado, é bem mais confiável do que um mega-prompt.
 export const PIPELINE_STEPS = [
-  { phase: "discovery", agentId: "discovery", command: "*start" },
-  { phase: "prd", agentId: "prd", command: "*generate" },
-  { phase: "architecture", agentId: "architect", command: "*design" },
-  { phase: "backlog", agentId: "backlog", command: "*breakdown" },
-  { phase: "business-case", agentId: "business-case", command: "*analyze" },
+  { phase: "discovery", agentId: "discovery", commands: ["*start"] },
+  { phase: "prd", agentId: "prd", commands: ["*generate"] },
+  { phase: "architecture", agentId: "architect", commands: ["*design"] },
+  { phase: "backlog", agentId: "backlog", commands: ["*breakdown", "*estimate", "*staffing"] },
+  { phase: "business-case", agentId: "business-case", commands: ["*analyze"] },
 ] as const;
 
 // Cria o run e dispara o processamento em background (não bloqueia a
@@ -41,16 +48,38 @@ async function processPipeline(runId: string, rfpText: string): Promise<void> {
       throw new Error(`agente não encontrado no registry: ${step.agentId}`);
     }
 
-    let result;
-    try {
-      result = await runAgentCommand({ systemPrompt: agent.persona, command: step.command, input: carriedInput });
-    } catch (error) {
-      updateRunStatus(runId, "failed");
-      throw error;
+    // Dentro da fase, cada comando recebe TODAS as saídas acumuladas dos
+    // comandos anteriores da mesma fase (não só a do imediatamente
+    // anterior) — o *staffing precisa enxergar o *breakdown (volume de
+    // stories por especialidade) e o *estimate (pontos/sprints) juntos,
+    // não apenas o resumo do *estimate isolado.
+    let phaseInput = carriedInput;
+    const sections: string[] = [];
+    let lastProvider: string | undefined;
+    let lastModel: string | undefined;
+
+    for (const command of step.commands) {
+      let result;
+      try {
+        result = await runAgentCommand({ systemPrompt: agent.persona, command, input: phaseInput });
+      } catch (error) {
+        updateRunStatus(runId, "failed");
+        throw error;
+      }
+      // Desembrulha o fence externo (se houver) ANTES de concatenar — cada
+      // comando gera sua própria resposta com seu próprio fence individual;
+      // se concatenássemos primeiro, o texto combinado teria múltiplos
+      // pares de fence e a heurística de desembrulho (que só age com
+      // exatamente 1 par) deixaria de disparar para qualquer uma delas.
+      sections.push(unwrapOuterCodeFence(result.output));
+      phaseInput = sections.join("\n\n");
+      lastProvider = result.provider;
+      lastModel = result.model;
     }
 
-    saveArtifact(runId, step.phase, step.agentId, step.command, result.output, result.provider, result.model);
-    carriedInput = result.output;
+    const combinedOutput = sections.join("\n\n");
+    saveArtifact(runId, step.phase, step.agentId, step.commands.join(" → "), combinedOutput, lastProvider, lastModel);
+    carriedInput = combinedOutput;
   }
 
   const run = getRun(runId);

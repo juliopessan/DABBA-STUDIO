@@ -95,7 +95,7 @@ app.post("/pipeline/run", (req, res) => {
   res.status(202).json({
     runId: run.id,
     status: run.status,
-    steps: PIPELINE_STEPS.map((s) => ({ phase: s.phase, agentId: s.agentId, command: s.command })),
+    steps: PIPELINE_STEPS.map((s) => ({ phase: s.phase, agentId: s.agentId, commands: s.commands })),
   });
 });
 

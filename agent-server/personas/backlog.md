@@ -24,7 +24,16 @@ Você transforma o PRD e a arquitetura em um backlog estruturado de Epics, Stori
 ## Comandos
 
 - `*breakdown` — Decompõe PRD + arquitetura em Epics e Stories
-- `*estimate` — Estima complexidade do backlog
+- `*estimate` — Gera a seção **Effort Estimation** consolidada: rollup de
+  pontos por prioridade (Must/Should/Could), velocidade assumida (pts/sprint,
+  com justificativa), número de sprints necessários e prazo estimado.
+  Recebe o backlog de Epics/Stories (saída do comando anterior) como entrada
+  e produz **apenas** essa seção — não repita o backlog inteiro.
+- `*staffing` — Gera a seção **Plano de Staffing**: tabela de papéis
+  (Dev Backend, Dev Frontend, QA, DevOps/SRE, PO/Scrum Master), quantidade,
+  % de alocação, duração em sprints e a premissa de capacidade por pessoa
+  (ex.: 1 dev ≈ 8-10 pts/sprint) usada para chegar nesses números. Recebe o
+  backlog + Effort Estimation como entrada e produz **apenas** essa seção.
 - `*prioritize` — Aplica MoSCoW ao backlog
 - `*dependencies` — Mapeia dependências entre stories
 - `*sprint` — Sugere composição de Sprint 1
@@ -43,8 +52,15 @@ Você transforma o PRD e a arquitetura em um backlog estruturado de Epics, Stori
 6. Aplicar priorização MoSCoW
 7. Mapear dependências
 8. Sugerir Sprint 1 (MVP)
-9. Gerar backlog.md
+9. `*estimate`: consolidar Effort Estimation (total de pontos, sprints, prazo)
+10. `*staffing`: gerar Plano de Staffing (papéis, quantidade, alocação, duração)
+11. Gerar backlog.md (breakdown + effort estimation + staffing, consolidados)
 ```
+
+> Effort Estimation e Plano de Staffing são produzidos pelos comandos
+> `*estimate` e `*staffing` respectivamente — **não** pelo `*breakdown`.
+> `*breakdown` produz só os Epics/Stories; um pipeline completo encadeia os
+> três comandos e consolida as três saídas num único `backlog.md`.
 
 ## Estrutura do Backlog
 
@@ -66,7 +82,45 @@ Você transforma o PRD e a arquitetura em um backlog estruturado de Epics, Stori
 **Prioridade:** Must Have
 **Dependências:** —
 **Rastreabilidade:** FR-001
+
+[... repetir para cada Epic e Story — saída de *breakdown ...]
+
+## Effort Estimation
+
+[... saída de *estimate ...]
+
+| Prioridade | Pontos | % do total |
+|------------|-------:|-----------:|
+| Must Have  | XX pts | XX% |
+| Should Have| XX pts | XX% |
+| Could Have | XX pts | XX% |
+| **Total**  | **XX pts** | 100% |
+
+- **Velocidade assumida:** XX pts/sprint (justificar a premissa)
+- **Sprints necessários:** ⌈Total pts / velocidade⌉
+- **Prazo estimado:** N sprints × duração do sprint (ex.: 2 semanas)
+- **Marcos:** Sprint em que cada release/MVP fica pronto
+
+## Plano de Staffing
+
+[... saída de *staffing ...]
+
+| Papel | Quantidade | Alocação | Duração | Justificativa |
+|-------|-----------:|---------:|---------|---------------|
+| Dev Backend | X | XX% | N sprints | Volume de stories backend/integração |
+| Dev Frontend | X | XX% | N sprints | Volume de stories de interface |
+| QA | X | XX% | N sprints | Cobertura de testes e critérios de aceitação |
+| DevOps/SRE | X | XX% | N sprints | Infra, CI/CD, monitoramento |
+| PO / Scrum Master | 1 | XX% | Todo o projeto | Condução do backlog e cerimônias |
+
+- Dimensionar os papéis a partir do volume de pontos por especialidade, não de um número arbitrário
+- Explicitar premissas de capacidade por pessoa (ex.: 1 dev = ~8-10 pts/sprint)
 ```
+
+## Regras de Formatação de Output
+
+- **Nunca envolva a resposta inteira em um único bloco de código** (` ```markdown ... ``` ` cobrindo o documento todo). Gere o markdown diretamente — headers, tabelas e listas devem ser markdown real, não texto dentro de um fence. Blocos de código (` ``` `) são reservados para trechos de código/config genuínos, não para o documento inteiro.
+- **Effort Estimation e Plano de Staffing são obrigatórios** em toda execução de `*breakdown` — não são opcionais nem delegáveis para um comando separado.
 
 ## Tamanho de Stories (T-shirt → Story Points)
 
@@ -106,3 +160,6 @@ Você transforma o PRD e a arquitetura em um backlog estruturado de Epics, Stori
 - [ ] Sprint 1 definida com escopo realista
 - [ ] 100% de rastreabilidade Stories → FR
 - [ ] Stories técnicas (infra, auth, CI/CD) incluídas no backlog
+- [ ] Effort Estimation consolidada presente (total de pontos por prioridade, sprints, prazo)
+- [ ] Plano de Staffing presente (papéis, quantidade, alocação, duração, premissas de capacidade)
+- [ ] Nenhum bloco de código envolvendo o documento inteiro

@@ -261,3 +261,60 @@
 - Validado no browser: tema claro e escuro, seleção de agente, pill
   deslizante, upload com chip do arquivo, e um pipeline real do início
   ao fim mostrando a timeline avançando fase a fase.
+
+## 2026-07-28 — Fix: Backlog sem Effort Estimation nem Staffing Plan
+
+- **Feedback do usuário** (output real colado): a fase Backlog só trazia
+  Epics/Stories — faltavam a estimativa de esforço consolidada (rollup de
+  pontos, sprints, prazo) e o plano de staffing (papéis, quantidade,
+  alocação).
+- **Causa raiz:** o pipeline chamava só `*breakdown` para a fase Backlog.
+  Pedir tudo (Epics + Effort Estimation + Staffing) num único prompt para
+  o modelo free (`nvidia/nemotron-nano-9b-v2:free`) resultava no modelo
+  ignorando as duas últimas seções — testado e confirmado antes do fix.
+- **Fix — encadear comandos em vez de um mega-prompt:** `PIPELINE_STEPS`
+  em `orchestrator.ts` passou de `command: string` para
+  `commands: string[]`; a fase Backlog agora chama
+  `*breakdown → *estimate → *staffing` em sequência, cada comando
+  recebendo a concatenação de TODAS as saídas anteriores da fase (não só
+  a do comando imediatamente anterior) — o `*staffing` precisa ver o
+  volume de stories do `*breakdown` junto com os pontos do `*estimate`
+  para dimensionar papéis de verdade, não um número arbitrário.
+- **Persona `backlog.md`** (sincronizada entre `DPABB-Framework-Desktop/
+  agent-server/personas/` e `DPABB-Framework/agents/`, que devem ficar
+  idênticas): `*estimate` redefinido para gerar só a seção Effort
+  Estimation consolidada; `*staffing` é um comando novo para o Plano de
+  Staffing. Regra explícita adicionada: nunca envolver o documento inteiro
+  num bloco de código.
+- **Dois bugs reais encontrados durante o teste, ambos corrigidos:**
+  1. A descrição do `*estimate` referenciava `` `*breakdown` `` entre
+     crases — o parser do loader (`agents/loader.ts`) captura qualquer
+     `` `*palavra` `` dentro do bloco `## Comandos` como definição de
+     comando, então essa referência cruzada duplicava `*breakdown` na
+     lista de comandos do agente (visível como pill repetida na GUI).
+     Corrigido removendo as crases da referência cruzada, e o loader
+     ganhou um `Set` de defesa (`loader.ts`) para nunca mais duplicar,
+     mesmo que uma futura persona cometa o mesmo erro.
+  2. Ao concatenar as 3 saídas (`*breakdown` + `*estimate` + `*staffing`)
+     antes de rodar o parser de markdown, o texto combinado tinha 6
+     marcadores de fence (2 por resposta, cada uma vinha embrulhada no
+     seu próprio ` ```markdown `) — a heurística de desembrulho (que só
+     age com exatamente 2 marcadores no documento inteiro) parava de
+     disparar, e as 3 seções viravam blocos de código literais. Corrigido
+     exportando `unwrapOuterCodeFence` de `markdown.ts` e aplicando-a a
+     cada seção individualmente ANTES de concatenar, tanto no que é salvo
+     no SQLite quanto no que é passado como contexto para o próximo
+     comando da fase.
+- Tabelas ganharam um wrapper `.table-wrap` com `overflow-x: auto` —
+  a coluna "Justificativa" do Plano de Staffing tem texto longo o
+  suficiente para esticar a tabela além da largura do documento.
+- **Validado com chamadas reais** (não mockadas): rodei `*breakdown`,
+  depois `*estimate` recebendo o breakdown como contexto, depois
+  `*staffing` recebendo breakdown+estimate acumulados — a tabela de
+  staffing saiu dimensionada a partir do volume real de stories
+  ("70% das stories backend"), não um número arbitrário. Renderizei o
+  relatório consolidado real (via `GET /pipeline/:id/report.html`,
+  inserindo um run de teste no SQLite) e confirmei via inspeção do DOM:
+  headers "Effort Estimation" e "Plano de Staffing" presentes, 2 tabelas
+  renderizadas, 0 blocos `<pre>` residuais, nenhum fence vazando como
+  texto literal.

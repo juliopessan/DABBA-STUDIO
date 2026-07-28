@@ -37,7 +37,7 @@ export async function extractTextFromFile(file: File): Promise<ExtractedFile> {
 export interface PipelineStep {
   phase: string;
   agentId: string;
-  command: string;
+  commands: string[];
 }
 
 export interface PipelineArtifact {

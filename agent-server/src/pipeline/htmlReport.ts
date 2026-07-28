@@ -113,10 +113,10 @@ section.phase {
 .phase-content p { line-height: 1.7; }
 .phase-content ul, .phase-content ol { line-height: 1.7; padding-left: 22px; }
 .phase-content ul ul, .phase-content ol ol, .phase-content ul ol, .phase-content ol ul { margin-top: 4px; }
+.phase-content .table-wrap { overflow-x: auto; margin: 16px 0; }
 .phase-content table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
   font-size: 13px;
 }
 .phase-content th, .phase-content td {

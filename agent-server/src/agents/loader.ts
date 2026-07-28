@@ -17,8 +17,12 @@ function parseAgent(id: string, content: string): Agent {
   const name = header?.[2]?.trim() ?? id;
 
   const commandsBlock = content.match(/## Comandos\n([\s\S]*?)\n##/);
+  // Só a primeira ocorrência de cada comando conta como definição; qualquer
+  // referência cruzada subsequente entre crases (ex.: "saída do `*breakdown`"
+  // dentro da descrição de outro comando) é ignorada em vez de duplicar a
+  // entrada na lista de comandos do agente.
   const commands = commandsBlock
-    ? [...commandsBlock[1].matchAll(/`(\*[\w-]+)`/g)].map((m) => m[1])
+    ? [...new Set([...commandsBlock[1].matchAll(/`(\*[\w-]+)`/g)].map((m) => m[1]))]
     : [];
 
   return { id, name, commands, persona: content };
