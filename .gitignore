@@ -7,3 +7,6 @@ target/
 .DS_Store
 src-tauri/target/
 agent-server/data/
+agent-server/.sidecar-build/
+agent-server/.sidecar-cache/
+desktop-shell/src-tauri/binaries/

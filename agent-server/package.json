@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "build:sidecar": "node scripts/build-sidecar.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
@@ -20,6 +21,8 @@
     "@types/multer": "^1.4.12",
     "@types/node": "^20.14.0",
     "@types/pdf-parse": "^1.1.4",
+    "esbuild": "^0.28.1",
+    "postject": "^1.0.0-alpha.6",
     "tsx": "^4.16.0",
     "typescript": "^5.5.0"
   }

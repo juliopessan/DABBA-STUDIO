@@ -1,12 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
-import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.resolve(__dirname, "../../data");
-mkdirSync(DATA_DIR, { recursive: true });
+import { DATA_DIR } from "../appPaths.js";
 
 const db = new DatabaseSync(path.join(DATA_DIR, "dabba.sqlite"));
 

@@ -3,12 +3,9 @@ import { runAgentCommand } from "../llm/provider.js";
 import { createRun, saveArtifact, updateRunStatus, getArtifacts, getRun, type PipelineRun } from "../db/sqlite.js";
 import { buildConsolidatedReport } from "./htmlReport.js";
 import { unwrapOuterCodeFence } from "./markdown.js";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUTPUT_DIR = path.resolve(__dirname, "../../data/output");
+import { OUTPUT_DIR } from "../appPaths.js";
 
 // Ordem oficial do pipeline DABBA (Discovery → PRD → Architect → Backlog →
 // Business Case), documentada no CLAUDE.md do framework original — cada
@@ -87,7 +84,6 @@ async function processPipeline(runId: string, rfpText: string): Promise<void> {
   const artifacts = getArtifacts(runId);
   const html = buildConsolidatedReport(run, artifacts);
 
-  mkdirSync(OUTPUT_DIR, { recursive: true });
   const reportPath = path.join(OUTPUT_DIR, `${runId}.html`);
   writeFileSync(reportPath, html, "utf-8");
   updateRunStatus(runId, "done", reportPath);

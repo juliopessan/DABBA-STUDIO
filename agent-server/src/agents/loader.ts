@@ -1,9 +1,5 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PERSONAS_DIR = path.resolve(__dirname, "../../personas");
 
 export interface Agent {
   id: string;
@@ -28,12 +24,38 @@ function parseAgent(id: string, content: string): Agent {
   return { id, name, commands, persona: content };
 }
 
-export function loadAgents(): Agent[] {
-  return readdirSync(PERSONAS_DIR)
+// Empacotado como Node SEA (sidecar Tauri), não existe um "arquivo ao lado
+// do source" para localizar via import.meta.url/__dirname — o executável é
+// um blob único. As personas viram *assets* embutidos no binário (ver
+// scripts/build-sidecar.mjs), lidos via o módulo builtin `node:sea`.
+// `import("node:sea")` é feito dinamicamente para não quebrar o bundle CJS
+// (o SEA config do Node exige CJS; `import.meta` não sobrevive à conversão).
+async function loadAgentsFromSeaAssets(): Promise<Agent[]> {
+  const sea = await import("node:sea");
+  const manifest = JSON.parse(sea.getAsset("personas-manifest.json", "utf8")) as string[];
+  return manifest.map((id) => {
+    const content = sea.getAsset(`persona-${id}.md`, "utf8");
+    return parseAgent(id, content);
+  });
+}
+
+function loadAgentsFromDisk(): Agent[] {
+  // Em dev (tsx) e no build tsc tradicional, personas/ fica duas pastas
+  // acima do arquivo compilado (agent-server/personas), resolvida a partir
+  // do cwd do processo (agent-server/), que é como `npm run dev` e
+  // `npm start` sempre são invocados neste projeto.
+  const personasDir = path.resolve(process.cwd(), "personas");
+  return readdirSync(personasDir)
     .filter((f) => f.endsWith(".md"))
     .map((f) => {
       const id = f.replace(/\.md$/, "");
-      const content = readFileSync(path.join(PERSONAS_DIR, f), "utf-8");
+      const content = readFileSync(path.join(personasDir, f), "utf-8");
       return parseAgent(id, content);
     });
+}
+
+export async function loadAgents(): Promise<Agent[]> {
+  const sea = await import("node:sea").catch(() => null);
+  if (sea?.isSea()) return loadAgentsFromSeaAssets();
+  return loadAgentsFromDisk();
 }

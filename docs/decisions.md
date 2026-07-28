@@ -318,3 +318,108 @@
   headers "Effort Estimation" e "Plano de Staffing" presentes, 2 tabelas
   renderizadas, 0 blocos `<pre>` residuais, nenhum fence vazando como
   texto literal.
+
+## 2026-07-28 — agent-server como sidecar Tauri (Node SEA)
+
+- **Motivação:** até aqui, "usar o app" exigia rodar `npm run dev:server`
+  manualmente num terminal, além de abrir a GUI — não é a experiência de
+  duplo-clique de um app Mac de verdade. Perguntei ao usuário como prefere
+  resolver a supervisão do backend; escolheu sidecar Tauri (o padrão
+  recomendado pelo próprio Tauri para esse cenário).
+- **Empacotamento — Node SEA (Single Executable Application):** o
+  `agent-server` (Express + node:sqlite + LLM providers) vira um binário
+  standalone via `agent-server/scripts/build-sidecar.mjs`:
+  1. `esbuild` bundla tudo num único `bundle.cjs`
+  2. `node --experimental-sea-config` gera o blob SEA
+  3. o blob é injetado (via `postject`) numa cópia do binário do Node
+  4. no macOS, a assinatura precisa ser removida antes da injeção e
+     re-assinada (ad-hoc) depois — alterar o binário invalida a assinatura
+     original.
+  5. o resultado vai para `desktop-shell/src-tauri/binaries/agent-server-<target-triple>`,
+     a convenção de nome que o Tauri exige para sidecars.
+- **Bug real descoberto durante o teste:** o binário do Node do sistema
+  (Homebrew, neste caso) é linkado dinamicamente contra dylibs do próprio
+  gerenciador de pacotes (`libnode.141.dylib`, openssl, icu4c, sqlite…) em
+  caminhos absolutos daquela máquina — copiar esse binário funciona *só
+  ali*, mas quebraria em qualquer outra máquina onde o app fosse
+  instalado. Confirmado via `otool -L` (dezenas de dependências
+  Homebrew) vs. o binário oficial do nodejs.org (só frameworks do
+  próprio macOS). Corrigido: o script baixa e cacheia o binário oficial
+  estático (`nodejs.org/dist/vX/node-vX-darwin-arm64.tar.gz`) e usa
+  **esse** como base para a injeção, nunca o Node local de dev.
+- **`import.meta.url` não sobrevive ao bundle CJS:** SEA exige um entry
+  point CJS; `import.meta` vira `{}` nesse formato (o esbuild avisa,
+  "empty-import-meta"), quebrando qualquer `fileURLToPath(import.meta.url)`
+  usado para localizar arquivos relativos ao módulo — e o agent-server
+  usava isso em `agents/loader.ts` para achar `personas/`. Além disso, um
+  executável SEA é um blob único: não há "pasta ao lado" no disco para
+  ler `personas/*.md` de qualquer forma, mesmo sem o problema do
+  `import.meta`.
+  - **Fix:** personas viram *assets* embutidos no binário via o
+    mecanismo nativo do Node SEA (`sea-config.json.assets`), com uma
+    chave por persona (`persona-<id>.md`) mais um manifest
+    (`personas-manifest.json`) listando os ids — gerado dinamicamente
+    pelo script a partir do conteúdo real de `agent-server/personas/`.
+  - `agents/loader.ts` ganhou dois caminhos: `loadAgentsFromSeaAssets()`
+    (via `import("node:sea")` dinâmico + `sea.getAsset()`) quando
+    `sea.isSea()` é verdadeiro, e `loadAgentsFromDisk()` (via
+    `process.cwd()`, não mais `import.meta.url`) para o modo dev/`tsc`
+    tradicional.
+  - Como `loadAgents()` virou `async`, `registry.ts` ganhou um
+    `initAgents()` chamado uma vez no boot do servidor, antes de
+    `app.listen` — `listAgents()`/`getAgent()` continuam síncronos depois
+    disso.
+- **Caminhos de dados/config viraram convenção de app instalado**
+  (`agent-server/src/appPaths.ts`, novo): SQLite e os relatórios HTML
+  consolidados saem de `agent-server/data/` (relativo ao source, que não
+  existe num binário único) para `~/Library/Application Support/DABBA/`
+  no macOS (padrão equivalente em Windows/Linux). O `.env` segue a mesma
+  lógica: tentado primeiro relativo ao cwd (preserva o fluxo de dev
+  existente), com fallback para
+  `~/Library/Application Support/DABBA/.env` — é onde a chave de API do
+  usuário vai morar no app empacotado, até existir uma tela de
+  configurações na GUI para isso.
+- **Rust não estava no PATH desta sessão** (instalado via Homebrew/rustup
+  em sessão anterior, mas o Bash tool não carrega o profile que o expõe)
+  — contornado usando `/opt/homebrew/opt/rustup/bin` diretamente.
+- **Lado Rust:** `lib.rs` registra `tauri-plugin-shell`, sobe o sidecar
+  no `setup()` via `app.shell().sidecar("agent-server").spawn()`,
+  repassa stdout/stderr do processo Node para o log do Tauri, e mata o
+  processo filho em `WindowEvent::CloseRequested` (sem isso, fechar a
+  janela deixaria um Node órfão escutando na porta 8765).
+  `capabilities/default.json` ganhou a permissão `shell:allow-execute`
+  escopada para esse sidecar específico.
+- **Validado em camadas, cada uma isoladamente antes de integrar:**
+  binário SEA standalone rodado direto (sem Tauri) → respondeu
+  `/health` com os 5 agentes, `/agents/discovery` com a persona completa
+  (2492 chars) carregada dos assets embutidos, SQLite criado no diretório
+  correto, e uma chamada real de LLM (`*start` via OpenRouter) funcionou
+  de ponta a ponta dentro do binário standalone antes de sequer tentar
+  integrar com o Tauri.
+- **`tauri build` real, dois bugs encontrados testando o `.app`/`.dmg` de
+  verdade (não só compilando):**
+  1. **Sidecar órfão ao sair do app.** `.on_window_event` com
+     `WindowEvent::CloseRequested` só dispara ao fechar uma janela
+     específica pelo X — testei "Sair" via `osascript ... quit` (equivale
+     a Cmd+Q/menu Sair) e o processo `dabba` morreu mas o `agent-server`
+     continuou vivo, respondendo em :8765. Corrigido trocando para
+     `.build(...).run(|app, event| ...)` escutando
+     `RunEvent::ExitRequested | RunEvent::Exit`, que cobre todo caminho de
+     saída do app, não só o botão de fechar de uma janela. Validado de
+     novo com o mesmo `osascript quit`: os dois processos morrem juntos e
+     a porta é liberada.
+  2. **`bundle_dmg.sh` falhando de forma intermitente.** Causa raiz:
+     volumes `.dmg` órfãos de tentativas anteriores (`/Volumes/dmg.*`)
+     ficando montados — o script de bundling da própria Tauri CLI monta
+     uma imagem temporária para configurar o layout do Finder, e se uma
+     tentativa anterior não desmontou direito (build interrompido, app
+     aberto a partir do volume montado), a próxima falha ao tentar
+     montar/desmontar. Não é bug de código, é estado do ambiente; mitigação
+     é sempre `hdiutil detach` os volumes órfãos antes de rebuildar.
+- **Testado como instalação real, não só compilação:** montei o `.dmg`
+  final, copiei o `.app` de dentro dele (simulando arrastar para
+  Applications) para fora do diretório de build, abri esse `.app`
+  "instalado" do zero — subiu sozinho (app + sidecar), respondeu a uma
+  chamada de LLM real, e ao "Sair" os dois processos morreram juntos e a
+  porta 8765 ficou livre. Esse é o mesmo caminho que um usuário real
+  percorreria.

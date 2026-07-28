@@ -1,13 +1,22 @@
-import "dotenv/config";
+import dotenv from "dotenv";
 import express from "express";
 import multer from "multer";
 import path from "node:path";
-import { listAgents, getAgent } from "./agents/registry.js";
+import { existsSync, readFileSync } from "node:fs";
+import { initAgents, listAgents, getAgent } from "./agents/registry.js";
 import { runAgentCommand } from "./llm/provider.js";
 import { extractText, isSupportedExtension } from "./upload/extractText.js";
 import { startPipeline, PIPELINE_STEPS } from "./pipeline/orchestrator.js";
 import { getRun, getArtifacts } from "./db/sqlite.js";
-import { readFileSync } from "node:fs";
+import { ENV_FILE } from "./appPaths.js";
+
+// Em dev, o `.env` vive ao lado do source (agent-server/.env) — tentado
+// primeiro para não quebrar o fluxo de desenvolvimento existente.
+// Empacotado como sidecar Tauri não há "ao lado do executável" gravável;
+// as chaves do usuário ficam em ~/Library/Application Support/DABBA/.env
+// (dotenv.config não sobrescreve vars já setadas pela primeira chamada).
+if (existsSync(".env")) dotenv.config({ path: ".env" });
+dotenv.config({ path: ENV_FILE });
 
 const app = express();
 app.use(express.json());
@@ -123,6 +132,8 @@ app.get("/pipeline/:id/report.html", (req, res) => {
   res.send(readFileSync(run.report_path, "utf-8"));
 });
 
-app.listen(PORT, () => {
-  console.log(`agent-server listening on http://localhost:${PORT}`);
+initAgents().then(() => {
+  app.listen(PORT, () => {
+    console.log(`agent-server listening on http://localhost:${PORT}`);
+  });
 });

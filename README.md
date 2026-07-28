@@ -146,8 +146,29 @@ Execução real, de ponta a ponta, a partir de uma RFP de exemplo
 - ✅ Pipeline completo: Discovery → PRD → Architecture → Backlog → Business Case,
   persistido em SQLite, com documento HTML consolidado final
 - ✅ UI/UX: ícones por agente, dark mode, timeline animada do pipeline, drag-and-drop
-- 🚧 `desktop-shell`: shell Tauri inicializado, empacotamento ainda pendente
+- ✅ App Mac real: `agent-server` empacotado como sidecar Tauri (Node SEA),
+  sobe e morre automaticamente com o app — `.app`/`.dmg` funcionais
 - Ver histórico de decisões em `docs/decisions.md`
+
+## App Mac (duplo-clique, sem terminal)
+
+O `agent-server` roda como **sidecar** do Tauri: um binário standalone
+(Node SEA — Single Executable Application) embutido dentro do `.app`,
+que sobe e morre automaticamente junto com a janela. Não é preciso rodar
+`npm run dev:server` manualmente para usar o app instalado.
+
+```bash
+# 1. Gerar o sidecar (uma vez, ou sempre que o agent-server mudar)
+cd agent-server && npm run build:sidecar
+
+# 2. Empacotar o app (.app + .dmg)
+cd desktop-shell && npm run tauri -- build
+```
+
+O `.dmg` sai em `desktop-shell/src-tauri/target/release/bundle/dmg/`.
+
+Detalhes técnicos e os dois bugs reais encontrados/corrigidos ao testar o
+`.app` de verdade (não só compilar) estão em `docs/decisions.md`.
 
 ## Pipeline completo (upload → 5 fases → relatório consolidado)
 
@@ -185,8 +206,20 @@ cd agent-server && npm install && npm run dev
 
 # 2. DABBA Studio (browser, dev — porta 1420)
 cd gui && npm install && npm run dev
+```
 
-# 3. Desktop app completo (requer Rust/cargo instalado)
+Os passos 1+2 abrem a GUI num browser comum, sem precisar do Tauri/Rust —
+mais rápido para iterar em UI e no agent-server.
+
+### Desktop app completo (Tauri + sidecar)
+
+`desktop-shell` sempre sobe o `agent-server` como sidecar automaticamente
+(mesmo em `tauri dev`) — **não** rode `npm run dev` do agent-server em
+paralelo, os dois disputariam a porta 8765. O sidecar precisa existir
+antes de `tauri dev`/`tauri build`:
+
+```bash
+cd agent-server && npm run build:sidecar   # gera o binário standalone (requer Rust/cargo)
 cd desktop-shell && npm install && npm run tauri dev
 ```
 
