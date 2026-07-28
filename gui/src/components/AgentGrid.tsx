@@ -38,8 +38,9 @@ export default function AgentGrid({ agents, selectedId, onSelect }: Props) {
         gap: 12,
       }}
     >
-      {agents.map((a) => {
+      {agents.map((a, i) => {
         const active = a.id === selectedId;
+        const num = String(i + 1).padStart(2, "0");
         return (
           <motion.button
             key={a.id}
@@ -55,8 +56,7 @@ export default function AgentGrid({ agents, selectedId, onSelect }: Props) {
               padding: "16px 16px 18px",
               borderRadius: "var(--dabba-radius)",
               border: `1px solid ${active ? "transparent" : "var(--dabba-border)"}`,
-              background: active ? "var(--dabba-clay-tint)" : "var(--dabba-surface)",
-              boxShadow: active ? "none" : "var(--dabba-shadow-sm)",
+              background: active ? "var(--dabba-clay-tint)" : "var(--dabba-surface-muted)",
               cursor: "pointer",
               overflow: "hidden",
               transition: "background 0.3s var(--dabba-ease), border-color 0.3s var(--dabba-ease)",
@@ -73,45 +73,48 @@ export default function AgentGrid({ agents, selectedId, onSelect }: Props) {
                   inset: 0,
                   borderRadius: "var(--dabba-radius)",
                   border: "1.5px solid var(--dabba-clay)",
-                  boxShadow: "var(--dabba-glow)",
                   pointerEvents: "none",
                 }}
               />
             )}
 
-            <motion.span
-              variants={{ hover: { y: -3, rotate: -6 } }}
-              transition={{ type: "spring", stiffness: 400, damping: 18 }}
+            <div
               style={{
-                display: "inline-flex",
+                display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                width: 38,
-                height: 38,
-                borderRadius: 11,
-                marginBottom: 12,
-                background: active ? "var(--dabba-clay)" : "var(--dabba-bg)",
-                color: active ? "#fff" : "var(--dabba-clay)",
-                transition: "background 0.3s var(--dabba-ease), color 0.3s var(--dabba-ease)",
+                justifyContent: "space-between",
+                marginBottom: 20,
               }}
             >
-              <AgentIcon id={a.id} />
-            </motion.span>
+              <span
+                className="dabba-eyebrow"
+                style={{ color: "var(--dabba-clay)", fontSize: 11 }}
+              >
+                {num}
+              </span>
+              <motion.span
+                variants={{ hover: { y: -3, rotate: -6 } }}
+                transition={{ type: "spring", stiffness: 400, damping: 18 }}
+                style={{
+                  display: "inline-flex",
+                  color: active ? "var(--dabba-clay)" : "var(--dabba-ink-faint)",
+                  transition: "color 0.3s var(--dabba-ease)",
+                }}
+              >
+                <AgentIcon id={a.id} size={18} />
+              </motion.span>
+            </div>
 
-            <div style={{ fontSize: 11.5, color: "var(--dabba-ink-faint)", letterSpacing: "0.02em" }}>
+            <div className="dabba-display" style={{ fontSize: 20, letterSpacing: "-0.02em" }}>
+              {a.name}
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--dabba-ink-soft)", marginTop: 5 }}>
               @{a.id}
             </div>
             <div
-              style={{
-                fontFamily: "var(--dabba-font-display)",
-                fontSize: 21,
-                fontWeight: 600,
-                marginTop: 1,
-              }}
+              className="dabba-eyebrow"
+              style={{ marginTop: 14, fontSize: 10 }}
             >
-              {a.name}
-            </div>
-            <div style={{ fontSize: 11.5, color: "var(--dabba-ink-faint)", marginTop: 6 }}>
               {a.commands.length} comandos
             </div>
           </motion.button>

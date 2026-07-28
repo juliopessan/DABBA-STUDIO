@@ -30,9 +30,8 @@ export default function PhaseTimeline({ artifacts, status }: Props) {
           left: 15,
           top: 18,
           bottom: 18,
-          width: 2,
+          width: 1,
           background: "var(--dabba-border)",
-          borderRadius: 2,
         }}
       />
       <motion.div
@@ -44,10 +43,9 @@ export default function PhaseTimeline({ artifacts, status }: Props) {
           left: 15,
           top: 18,
           bottom: 18,
-          width: 2,
-          borderRadius: 2,
+          width: 1,
           transformOrigin: "top",
-          background: "linear-gradient(180deg, var(--dabba-sage), var(--dabba-clay))",
+          background: "var(--dabba-clay)",
         }}
       />
 
@@ -60,7 +58,12 @@ export default function PhaseTimeline({ artifacts, status }: Props) {
         return (
           <motion.div
             key={phase.id}
-            initial={{ opacity: 0, x: -8 }}
+            // Entrada só por transform, como no resto da UI: com gate de
+            // opacidade a linha some se o rAF for suspenso (janela em
+            // segundo plano) e a animação congelar perto de zero — foi
+            // exatamente o que aconteceu com a fase em execução. O dimming
+            // de "pendente" continua, mas partindo de 1, nunca de 0.
+            initial={{ x: -8 }}
             animate={{ opacity: pending ? 0.5 : 1, x: 0 }}
             transition={{ delay: i * 0.06, duration: 0.3 }}
             style={{
@@ -129,15 +132,27 @@ export default function PhaseTimeline({ artifacts, status }: Props) {
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: isCurrent ? 600 : 500,
-                  color: isCurrent ? "var(--dabba-clay)" : "var(--dabba-ink)",
-                  transition: "color 0.3s var(--dabba-ease)",
-                }}
-              >
-                {phase.label}
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span
+                  className="dabba-eyebrow"
+                  style={{
+                    fontSize: 10.5,
+                    color: artifact || isCurrent ? "var(--dabba-clay)" : "var(--dabba-ink-faint)",
+                  }}
+                >
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span
+                  className="dabba-display"
+                  style={{
+                    fontSize: 16,
+                    letterSpacing: "-0.02em",
+                    color: isCurrent ? "var(--dabba-clay)" : "var(--dabba-ink)",
+                    transition: "color 0.3s var(--dabba-ease)",
+                  }}
+                >
+                  {phase.label}
+                </span>
               </div>
               <AnimatePresence>
                 {artifact && (
@@ -145,10 +160,11 @@ export default function PhaseTimeline({ artifacts, status }: Props) {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     style={{
-                      fontSize: 11.5,
+                      fontSize: 11,
                       color: "var(--dabba-ink-faint)",
                       fontFamily: "var(--dabba-font-mono)",
-                      marginTop: 2,
+                      marginTop: 4,
+                      marginLeft: 30,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -181,7 +197,8 @@ function ThinkingLabel() {
       <motion.span
         animate={{ opacity: [0.45, 1, 0.45] }}
         transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-        style={{ fontSize: 12, color: "var(--dabba-clay)" }}
+        className="dabba-eyebrow"
+        style={{ fontSize: 10, color: "var(--dabba-clay)" }}
       >
         gerando
       </motion.span>

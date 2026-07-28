@@ -62,38 +62,36 @@ export default function App() {
           alignItems: "flex-start",
           justifyContent: "space-between",
           gap: 20,
-          marginBottom: 36,
+          marginBottom: 44,
+          paddingBottom: 40,
+          borderBottom: "1px solid var(--dabba-border)",
         }}
       >
         <div>
-          <h1
-            style={{
-              fontFamily: "var(--dabba-font-display)",
-              fontSize: 44,
-              fontWeight: 600,
-              margin: 0,
-              letterSpacing: "-0.015em",
-              lineHeight: 1.05,
-            }}
-          >
-            DABBA{" "}
+          <div className="dabba-eyebrow">DPABB Framework / DABBA Studio</div>
+          <h1 className="dabba-display" style={{ fontSize: 52, margin: "14px 0 0" }}>
+            Requirements in.
+            <br />
             <motion.span
               initial={{ x: -6 }}
               animate={{ x: 0 }}
               transition={{ delay: 0.15, duration: 0.5 }}
-              style={{
-                background: "linear-gradient(120deg, var(--dabba-clay), var(--dabba-clay-dark))",
-                WebkitBackgroundClip: "text",
-                backgroundClip: "text",
-                color: "transparent",
-                display: "inline-block",
-              }}
+              style={{ color: "var(--dabba-clay)", display: "inline-block" }}
             >
-              Studio
+              Decisions out.
             </motion.span>
           </h1>
-          <p style={{ color: "var(--dabba-ink-soft)", marginTop: 8, fontSize: 15 }}>
-            Discovery, Architecture, Backlog and Business Analysis
+          <p
+            style={{
+              color: "var(--dabba-ink-soft)",
+              marginTop: 18,
+              fontSize: 15,
+              lineHeight: 1.6,
+              maxWidth: 480,
+            }}
+          >
+            Discovery, Architecture, Backlog and Business Analysis — cinco fases encadeadas
+            que transformam uma RFP em um documento rastreável.
           </p>
         </div>
 
@@ -105,14 +103,8 @@ export default function App() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}
                 title="agent-server conectado"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: 11.5,
-                  color: "var(--dabba-ink-faint)",
-                  fontFamily: "var(--dabba-font-mono)",
-                }}
+                className="dabba-eyebrow"
+                style={{ display: "inline-flex", alignItems: "center", gap: 7 }}
               >
                 <motion.span
                   animate={{ opacity: [1, 0.3, 1] }}
@@ -138,11 +130,11 @@ export default function App() {
             style={{
               display: "grid",
               placeItems: "center",
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
+              width: 34,
+              height: 34,
+              borderRadius: "var(--dabba-radius-sm)",
               border: "1px solid var(--dabba-border)",
-              background: "var(--dabba-surface)",
+              background: "transparent",
               color: "var(--dabba-ink-soft)",
               cursor: "pointer",
             }}
@@ -174,7 +166,7 @@ export default function App() {
               alignItems: "center",
               gap: 9,
               padding: "13px 16px",
-              borderRadius: "var(--dabba-radius-sm)",
+              borderLeft: "2px solid var(--dabba-clay)",
               background: "var(--dabba-clay-tint)",
               color: "var(--dabba-clay-dark)",
               fontSize: 13.5,
@@ -189,19 +181,15 @@ export default function App() {
 
       <PipelineRunner />
 
-      <h2
-        style={{
-          fontFamily: "var(--dabba-font-display)",
-          fontSize: 20,
-          fontWeight: 600,
-          margin: "0 0 4px",
-        }}
-      >
-        Agentes individuais
-      </h2>
-      <p style={{ color: "var(--dabba-ink-soft)", fontSize: 13, margin: "0 0 16px" }}>
-        Execute um comando isolado, sem rodar o pipeline inteiro.
-      </p>
+      <div style={{ marginTop: 56, paddingTop: 28, borderTop: "1px solid var(--dabba-border)" }}>
+        <div className="dabba-eyebrow">02 / Agentes individuais</div>
+        <h2 className="dabba-display" style={{ fontSize: 30, margin: "12px 0 10px" }}>
+          Uma fase por vez.
+        </h2>
+        <p style={{ color: "var(--dabba-ink-soft)", fontSize: 14, margin: "0 0 22px", maxWidth: 460 }}>
+          Execute um comando isolado, sem rodar o pipeline inteiro.
+        </p>
+      </div>
 
       <AgentGrid agents={agents} selectedId={selectedId} onSelect={setSelectedId} />
 

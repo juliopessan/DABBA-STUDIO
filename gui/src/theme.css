@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap");
 
 :root {
   /* Declara explicitamente o esquema de cores: sem isso, webviews e
@@ -6,31 +6,34 @@
      automático deles por cima da paleta, quebrando o tema claro. */
   color-scheme: light;
 
-  --dabba-bg: #f5f4ed;
-  --dabba-bg-deep: #eeece2;
-  --dabba-surface: #ffffff;
-  --dabba-surface-muted: #ebe9e0;
-  --dabba-border: #e3e1d7;
-  --dabba-border-strong: #d6d3c6;
-  --dabba-ink: #1f1e1d;
-  --dabba-ink-soft: #6b6a63;
-  --dabba-ink-faint: #9b998f;
-  --dabba-clay: #d97757;
-  --dabba-clay-dark: #bd5d3f;
-  --dabba-clay-tint: #fbeae2;
-  --dabba-sage: #7a8b6f;
-  --dabba-sage-tint: #eaefe6;
+  /* Paleta amostrada do comp de referência do DABBA Studio (editorial:
+     papel quente, tinta quase preta, um único acento terracota). */
+  --dabba-bg: #f2efe8;
+  --dabba-bg-deep: #e5e1d8;
+  --dabba-surface: #f2efe8;
+  --dabba-surface-muted: #e5e1d8;
+  --dabba-border: #d3cfc5;
+  --dabba-border-strong: #11110f;
+  --dabba-ink: #11110f;
+  --dabba-ink-soft: #5c5952;
+  --dabba-ink-faint: #aaa69c;
+  --dabba-clay: #ed6738;
+  --dabba-clay-dark: #c8481c;
+  --dabba-clay-tint: #f7ddd1;
+  --dabba-sage: #5c8a5e;
+  --dabba-sage-tint: #e2ebe0;
 
-  --dabba-shadow-sm: 0 1px 2px rgba(31, 30, 29, 0.05);
-  --dabba-shadow: 0 1px 2px rgba(31, 30, 29, 0.04), 0 8px 24px rgba(31, 30, 29, 0.06);
-  --dabba-shadow-lg: 0 2px 4px rgba(31, 30, 29, 0.04), 0 16px 40px rgba(31, 30, 29, 0.1);
-  --dabba-glow: 0 0 0 4px rgba(217, 119, 87, 0.14);
-  --dabba-ambient: rgba(217, 119, 87, 0.13);
+  /* Superfícies planas: o sistema separa por régua e contraste de fundo,
+     não por elevação — sombra aqui só sujaria a leitura tipográfica. */
+  --dabba-shadow-sm: none;
+  --dabba-shadow: none;
+  --dabba-shadow-lg: none;
+  --dabba-glow: 0 0 0 3px rgba(237, 103, 56, 0.18);
 
-  --dabba-radius: 16px;
-  --dabba-radius-sm: 10px;
-  --dabba-font-display: "Fraunces", Georgia, serif;
-  --dabba-font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --dabba-radius: 3px;
+  --dabba-radius-sm: 2px;
+  --dabba-font-display: "Helvetica Neue", "Inter Tight", Helvetica, Arial, sans-serif;
+  --dabba-font-body: "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --dabba-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
   --dabba-ease: cubic-bezier(0.4, 0, 0.2, 1);
@@ -39,26 +42,22 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --dabba-bg: #1a1917;
-  --dabba-bg-deep: #131211;
-  --dabba-surface: #232120;
-  --dabba-surface-muted: #2d2b28;
-  --dabba-border: #35322e;
-  --dabba-border-strong: #45413b;
-  --dabba-ink: #f2f0ea;
+  --dabba-bg: #11110f;
+  --dabba-bg-deep: #1a1a17;
+  --dabba-surface: #11110f;
+  --dabba-surface-muted: #1c1c19;
+  --dabba-border: #33322d;
+  --dabba-border-strong: #f2efe8;
+  --dabba-ink: #f2efe8;
   --dabba-ink-soft: #a5a29a;
-  --dabba-ink-faint: #75726b;
-  --dabba-clay: #e08b6d;
-  --dabba-clay-dark: #f0a98f;
-  --dabba-clay-tint: #3a2a23;
-  --dabba-sage: #93a487;
-  --dabba-sage-tint: #262c22;
+  --dabba-ink-faint: #6f6c65;
+  --dabba-clay: #ed6738;
+  --dabba-clay-dark: #f58a63;
+  --dabba-clay-tint: #33190f;
+  --dabba-sage: #7fae81;
+  --dabba-sage-tint: #1a241a;
 
-  --dabba-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --dabba-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.32);
-  --dabba-shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.45);
-  --dabba-glow: 0 0 0 4px rgba(224, 139, 109, 0.18);
-  --dabba-ambient: rgba(224, 139, 109, 0.1);
+  --dabba-glow: 0 0 0 3px rgba(237, 103, 56, 0.28);
 }
 
 * {
@@ -78,30 +77,32 @@ body {
   font-family: var(--dabba-font-body);
   -webkit-font-smoothing: antialiased;
   transition: background 0.4s var(--dabba-ease), color 0.4s var(--dabba-ease);
-}
-
-/* Gradiente ambiente sutil no topo — dá profundidade sem competir com o
-   conteúdo. Absoluto (não fixed) para evitar artefatos de composição na
-   webview do Tauri quando a página rola. */
-body::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 420px;
-  pointer-events: none;
-  background: radial-gradient(ellipse 900px 380px at 50% -120px, var(--dabba-ambient), transparent 70%);
-  z-index: 0;
-}
-
-body {
   position: relative;
 }
 
 #root {
   position: relative;
   z-index: 1;
+}
+
+/* Rótulo mono em caixa alta — o "eyebrow" do sistema editorial. Usado em
+   seções, campos e status para criar a segunda voz tipográfica ao lado
+   do display grotesco. */
+.dabba-eyebrow {
+  font-family: var(--dabba-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dabba-ink-faint);
+}
+
+/* Display grotesco compacto: o comp usa tracking negativo forte em
+   tamanhos grandes — sem isso o título perde a densidade característica. */
+.dabba-display {
+  font-family: var(--dabba-font-display);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
 }
 
 input,
@@ -135,8 +136,8 @@ a:focus-visible {
 }
 
 ::selection {
-  background: var(--dabba-clay-tint);
-  color: var(--dabba-ink);
+  background: var(--dabba-clay);
+  color: #fff;
 }
 
 ::-webkit-scrollbar {
@@ -147,8 +148,7 @@ a:focus-visible {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--dabba-border-strong);
-  border-radius: 999px;
+  background: var(--dabba-border);
   border: 3px solid var(--dabba-bg);
 }
 ::-webkit-scrollbar-thumb:hover {

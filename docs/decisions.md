@@ -609,3 +609,46 @@ OpenRouter, CPU do sidecar entre 0.6% e 3.2% durante toda a execução.
 caminho — qualquer leitura relativa (aqui, `dotenv`) muda de significado
 junto. A ordem "carrega genérico primeiro, específico depois" só é segura
 quando a fonte genérica é confiável.
+
+---
+
+## Reestilização da GUI para a linguagem visual do comp DABBA Studio
+
+**O que mudou:** só a camada visual — nenhuma mudança de estrutura, fluxo ou
+componente. A paleta foi amostrada pixel a pixel do comp de referência em
+vez de estimada: papel `#F2EFE8`, painel `#E5E1D8`, tinta `#11110F`,
+acento terracota `#ED6738`, texto de apoio `#5C5952`, régua `#D3CFC5`.
+
+**Decisões de sistema:**
+- **Serifa → grotesca.** `Fraunces` saiu; o display agora é Helvetica Neue
+  (nativo no macOS, fidelidade exata ao comp e sem dependência de rede),
+  com `Inter Tight` do Google Fonts como fallback multiplataforma.
+- **Superfícies planas.** Todas as sombras viraram `none` e os raios caíram
+  para 2–3px. A hierarquia passa a vir de régua, contraste de fundo e
+  tipografia — que é como o comp separa as camadas.
+- **Segunda voz tipográfica.** Classe `.dabba-eyebrow` (mono, caixa alta,
+  `letter-spacing: .16em`) para rótulos, numeração de fase e status.
+- **Gradientes fora.** Botão primário virou retângulo preto sólido; barra de
+  progresso, chip de status e botão de relatório usam o acento chapado.
+
+**Dois bugs reais encontrados e corrigidos durante a validação:**
+
+1. **Botão desabilitado invisível.** No tema editorial o fundo `muted` do
+   estado desabilitado é exatamente o fundo do painel que hospeda o botão —
+   sem borda, o controle sumia da tela. Passou a ter contorno próprio.
+
+2. **Linha da fase em execução quase invisível (`opacity: 0.058`).** A
+   `PhaseTimeline` era o único componente que ainda usava
+   `initial={{ opacity: 0 }}`. Quando o `requestAnimationFrame` é suspenso
+   (janela minimizada ou em segundo plano) a animação congela onde estiver —
+   e congelou perto de zero, escondendo justamente a fase ativa. `AgentGrid`
+   e `PipelineRunner` já documentavam esse risco e evitavam gate de
+   opacidade na entrada; a timeline ficou de fora. Agora entra só por
+   transform, e o dimming de "pendente" parte de 1, nunca de 0.
+
+**Validação:** typecheck e build de produção passando; página inspecionada
+nos temas claro e escuro com um pipeline real em execução (as 5 fases
+visíveis, numeradas, com a fase corrente em acento). Vale registrar que o
+painel de preview do navegador roda com `document.hidden = true`, o que
+congela transições CSS e animações do framer-motion em `currentTime: 0` —
+dois "bugs" investigados eram artefato disso, confirmado antes de descartar.

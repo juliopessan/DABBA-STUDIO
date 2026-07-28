@@ -33,19 +33,26 @@ export default function Button({
         display: "inline-flex",
         alignItems: "center",
         gap: 8,
-        padding: primary ? "11px 22px" : "7px 14px",
-        borderRadius: 999,
-        border: primary ? "none" : "1px solid var(--dabba-border-strong)",
-        background: disabled
-          ? "var(--dabba-surface-muted)"
+        padding: primary ? "15px 26px" : "8px 14px",
+        borderRadius: "var(--dabba-radius-sm)",
+        // Desabilitado precisa de contorno próprio: no tema editorial o
+        // fundo "muted" é o mesmo do painel que hospeda o botão, então sem
+        // borda o controle simplesmente some da tela.
+        border: disabled
+          ? "1px solid var(--dabba-border)"
           : primary
-            ? "linear-gradient(135deg, var(--dabba-clay), var(--dabba-clay-dark))"
-            : "var(--dabba-surface)",
-        color: disabled ? "var(--dabba-ink-faint)" : primary ? "#fff" : "var(--dabba-ink-soft)",
+            ? "none"
+            : "1px solid var(--dabba-border)",
+        background: disabled ? "transparent" : primary ? "var(--dabba-ink)" : "transparent",
+        color: disabled
+          ? "var(--dabba-ink-faint)"
+          : primary
+            ? "var(--dabba-bg)"
+            : "var(--dabba-ink-soft)",
         fontSize: primary ? 14 : 13,
         fontWeight: primary ? 600 : 500,
+        letterSpacing: primary ? "-0.005em" : 0,
         cursor: disabled ? "default" : "pointer",
-        boxShadow: disabled ? "none" : primary ? "var(--dabba-shadow-sm)" : "none",
         transition: "background 0.25s var(--dabba-ease), color 0.25s var(--dabba-ease)",
       }}
     >

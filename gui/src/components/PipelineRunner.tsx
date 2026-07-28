@@ -126,11 +126,9 @@ export default function PipelineRunner() {
       transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
       style={{
         position: "relative",
-        background: "var(--dabba-surface)",
-        border: "1px solid var(--dabba-border)",
+        background: "var(--dabba-surface-muted)",
         borderRadius: "var(--dabba-radius)",
-        boxShadow: "var(--dabba-shadow)",
-        padding: 26,
+        padding: 32,
         marginBottom: 28,
         overflow: "hidden",
       }}
@@ -147,10 +145,7 @@ export default function PipelineRunner() {
             <motion.div
               animate={{ width: `${progressPct}%` }}
               transition={{ duration: 0.6, ease: "easeOut" }}
-              style={{
-                height: "100%",
-                background: "linear-gradient(90deg, var(--dabba-sage), var(--dabba-clay))",
-              }}
+              style={{ height: "100%", background: "var(--dabba-clay)" }}
             />
           </motion.div>
         )}
@@ -158,17 +153,11 @@ export default function PipelineRunner() {
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
         <div>
-          <h2
-            style={{
-              fontFamily: "var(--dabba-font-display)",
-              fontSize: 22,
-              fontWeight: 600,
-              margin: "0 0 4px",
-            }}
-          >
-            Pipeline completo
+          <div className="dabba-eyebrow">01 / Pipeline completo</div>
+          <h2 className="dabba-display" style={{ fontSize: 30, margin: "12px 0 10px" }}>
+            A RFP percorre a cadeia.
           </h2>
-          <p style={{ color: "var(--dabba-ink-soft)", fontSize: 13, margin: 0, maxWidth: 560, lineHeight: 1.6 }}>
+          <p style={{ color: "var(--dabba-ink-soft)", fontSize: 14, margin: 0, maxWidth: 560, lineHeight: 1.6 }}>
             Anexe a RFP e rode as 5 fases de ponta a ponta. Cada fase usa o artefato da anterior como
             premissa; tudo fica salvo em SQLite.
           </p>
@@ -184,17 +173,17 @@ export default function PipelineRunner() {
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                padding: "6px 12px",
-                borderRadius: 999,
-                background: "var(--dabba-clay-tint)",
-                color: "var(--dabba-clay-dark)",
-                fontSize: 12.5,
-                fontWeight: 600,
+                padding: "7px 12px",
+                borderRadius: "var(--dabba-radius-sm)",
+                background: "var(--dabba-clay)",
+                color: "#fff",
+                fontFamily: "var(--dabba-font-mono)",
+                fontSize: 11.5,
                 whiteSpace: "nowrap",
                 flexShrink: 0,
               }}
             >
-              <ThinkingDots color="var(--dabba-clay)" size={5} />
+              <ThinkingDots color="#fff" size={5} />
               {progressPct}% · {formatElapsed(elapsed)}
             </motion.div>
           )}
@@ -210,7 +199,7 @@ export default function PipelineRunner() {
           disabled={busy}
           style={{
             width: "100%",
-            padding: "11px 14px",
+            padding: "13px 14px",
             borderRadius: "var(--dabba-radius-sm)",
             border: "1px solid var(--dabba-border)",
             fontSize: 14,
@@ -251,7 +240,7 @@ export default function PipelineRunner() {
                   position: "absolute",
                   inset: 0,
                   borderRadius: "var(--dabba-radius-sm)",
-                  border: "2px dashed var(--dabba-clay)",
+                  border: "1.5px dashed var(--dabba-clay)",
                   background: "var(--dabba-clay-tint)",
                   display: "grid",
                   placeItems: "center",
@@ -300,12 +289,12 @@ export default function PipelineRunner() {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
-                  padding: "5px 11px",
-                  borderRadius: 999,
+                  padding: "6px 11px",
+                  borderRadius: "var(--dabba-radius-sm)",
                   background: "var(--dabba-sage-tint)",
                   color: "var(--dabba-sage)",
-                  fontSize: 12,
-                  fontWeight: 500,
+                  fontFamily: "var(--dabba-font-mono)",
+                  fontSize: 11.5,
                 }}
               >
                 <FileIcon size={13} />
@@ -395,15 +384,14 @@ export default function PipelineRunner() {
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 8,
-                        padding: "11px 22px",
-                        borderRadius: 999,
+                        padding: "15px 26px",
+                        borderRadius: "var(--dabba-radius-sm)",
                         border: "none",
-                        background: "linear-gradient(135deg, var(--dabba-clay), var(--dabba-clay-dark))",
+                        background: "var(--dabba-clay)",
                         color: "#fff",
                         fontSize: 14,
                         fontWeight: 600,
                         cursor: "pointer",
-                        boxShadow: "var(--dabba-shadow-sm)",
                       }}
                     >
                       <ExternalIcon />
