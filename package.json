@@ -1,8 +1,8 @@
 {
-  "name": "dpabb-framework-desktop",
+  "name": "dabba",
   "version": "0.1.0",
   "private": true,
-  "description": "Desktop app (agent-server + GUI + Tauri shell) for the DPABB-Framework requirements pipeline",
+  "description": "DABBA — Discovery, Architecture, Backlog and Business Analysis. Commercial identity of the DPABB agentic framework: desktop app (agent-server + GUI + Tauri shell).",
   "workspaces": [
     "agent-server",
     "gui"

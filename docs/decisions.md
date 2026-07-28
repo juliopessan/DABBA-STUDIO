@@ -29,3 +29,30 @@
 - Endpoints expostos: `GET /health`, `GET /agents`, `GET /agents/:id`.
 - Ainda não implementado: execução real de comandos (`*start`, `*generate`,
   etc.) via LLM — por enquanto o server só serve a persona/metadados.
+
+## 2026-07-28 — Rebrand DABBA + execução via LLM + GUI + Tauri real
+
+- **Rebrand:** produto comercial passa a se chamar **DABBA** (Discovery,
+  Architecture, Backlog and Business Analysis). DPABB continua como nome
+  técnico interno do framework de agentes. Sub-marcas definidas: DABBA
+  Studio (GUI), DABBA Agents (os 5 agentes), DABBA Canvas (futuro), DABBA
+  Architect e DABBA Business (mapeados aos agentes `architect` e
+  `business-case`).
+- **Execução via LLM (BYOK):** `agent-server/src/llm/provider.ts` chama a
+  API de mensagens da Anthropic usando `persona` do agente como system
+  prompt. Configurado via `DABBA_LLM_API_KEY` / `DABBA_LLM_MODEL`. Sem chave
+  configurada, roda em modo `dry-run` (retorna o prompt sem chamar API) —
+  permite testar o fluxo completo sem credenciais. Endpoint:
+  `POST /agents/:id/run { command, input }`.
+- **GUI (DABBA Studio):** reescrita para consumir `/agents` e
+  `/agents/:id/run` de verdade — lista agentes, seleciona comando, roda e
+  mostra o resultado (modo live/dry-run). Testado no browser via preview,
+  incluindo CORS (precisou de middleware manual no Express).
+- **Tauri real:** crate Rust gerado via `tauri init --ci --force`
+  (Rust/rustup instalado via Homebrew, já existia parcialmente). Ajustes
+  pós-geração: `productName`/`identifier` voltaram para valores DABBA,
+  `beforeDevCommand`/`beforeBuildCommand` apontando para `../gui` (o init
+  assume GUI na mesma pasta do `src-tauri`, o que não é o caso aqui), nome
+  do crate/lib `dabba`/`dabba_lib`. Validado com `cargo check` e `tauri dev`
+  de ponta a ponta — o binário nativo abriu e serviu a GUI a partir do Vite
+  dev server.
