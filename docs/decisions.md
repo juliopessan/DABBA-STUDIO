@@ -181,3 +181,26 @@
   `scripts/regenerate-report.ts`) — confirmado headers/negrito voltando a
   aparecer em todas as 5 fases, e os 8 diagramas Mermaid da Architecture
   continuam corretamente isolados em blocos `<pre>`.
+
+## 2026-07-28 — Reescrita do parser de markdown: tabelas e listas aninhadas
+
+- **Feedback do usuário** (com o texto renderizado da página colado):
+  tabelas GFM (`| a | b |`) apareciam como pipes literais, listas
+  aninhadas (ex: `- Regulatory:\n  - sub-item`) viravam bullets duplicados
+  e texto solto, e listas numeradas (`1. item`) não eram convertidas.
+- **Reescrita completa** de `agent-server/src/pipeline/markdown.ts`:
+  - Tabelas GFM: detecta linha de cabeçalho `|...|` seguida de separador
+    (`|---|---|`), renderiza `<table><thead>...<tbody>`.
+  - Listas: pilha (`ListFrame[]`) rastreando indentação de cada nível,
+    suporta aninhamento real (`<ul>`/`<ol>` dentro de `<li>`), listas
+    ordenadas (`1.`/`1)`) viram `<ol>`, e linhas de continuação indentadas
+    sem marcador são anexadas ao item de lista aberto em vez de virarem
+    parágrafo solto.
+  - CSS: estilos de tabela adicionados em `htmlReport.ts` (bordas,
+    header destacado com Fraunces, `<hr>` sutil).
+- **Validado no run real do usuário** (`c47e82df...`, RFP
+  "SmallProjectScopeRFP") via `regenerate-report.ts` — tabelas de
+  stakeholders, riscos e alternativas renderizando com bordas corretas;
+  listas aninhadas (critérios de aceitação Given/Quando/Then dentro de
+  cada story do Backlog) com marcadores diferentes por nível; listas
+  numeradas dos "Próximos Passos" como `<ol>` de verdade.

@@ -40,15 +40,35 @@ function unwrapOuterCodeFence(markdown: string): string {
   return inner.length > markdown.length * 0.5 ? inner : markdown;
 }
 
-// Conversor minimalista de markdown → HTML: cobre headers, negrito/itálico,
-// código inline/bloco, listas e parágrafos — suficiente para o output
-// tipicamente estruturado dos agentes, sem puxar uma lib externa.
+const UNORDERED_ITEM = /^(\s*)[-*]\s+(.*)$/;
+const ORDERED_ITEM = /^(\s*)\d+[.)]\s+(.*)$/;
+const TABLE_ROW = /^\s*\|(.+)\|\s*$/;
+const TABLE_SEPARATOR = /^\s*\|?[\s:-]+\|[\s:|-]+\|?\s*$/;
+
+function splitTableRow(row: string): string[] {
+  return row
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+interface ListFrame {
+  indent: number;
+  ordered: boolean;
+  liOpen: boolean;
+}
+
+// Conversor de markdown → HTML sem dependência externa: headers, negrito/
+// itálico/código inline, blocos de código, tabelas GFM, listas ordenadas e
+// não-ordenadas com aninhamento por indentação, e parágrafos.
 export function markdownToHtml(markdown: string): string {
   const lines = unwrapOuterCodeFence(markdown).split("\n");
   const html: string[] = [];
-  let inList = false;
   let inCodeBlock = false;
   let paragraph: string[] = [];
+  const listStack: ListFrame[] = [];
 
   function flushParagraph() {
     if (paragraph.length) {
@@ -57,14 +77,23 @@ export function markdownToHtml(markdown: string): string {
     }
   }
 
-  function closeList() {
-    if (inList) {
-      html.push("</ul>");
-      inList = false;
+  // Fecha frames da pilha de listas até (exclusive) o indent alvo — usado
+  // tanto em transições de indentação quanto para fechar tudo no final.
+  function closeListsDeeperThan(indent: number) {
+    while (listStack.length && listStack[listStack.length - 1].indent >= indent) {
+      const frame = listStack.pop()!;
+      if (frame.liOpen) html.push("</li>");
+      html.push(frame.ordered ? "</ol>" : "</ul>");
     }
   }
 
-  for (const rawLine of lines) {
+  function closeAllLists() {
+    closeListsDeeperThan(-1);
+  }
+
+  let i = 0;
+  while (i < lines.length) {
+    const rawLine = lines[i];
     const line = rawLine.trimEnd();
 
     if (line.trim().startsWith("```")) {
@@ -73,55 +102,99 @@ export function markdownToHtml(markdown: string): string {
         inCodeBlock = false;
       } else {
         flushParagraph();
-        closeList();
+        closeAllLists();
         html.push("<pre><code>");
         inCodeBlock = true;
       }
+      i++;
       continue;
     }
     if (inCodeBlock) {
       html.push(escapeHtml(rawLine) + "\n");
+      i++;
+      continue;
+    }
+
+    if (TABLE_ROW.test(line) && i + 1 < lines.length && TABLE_SEPARATOR.test(lines[i + 1])) {
+      flushParagraph();
+      closeAllLists();
+      const header = splitTableRow(line);
+      html.push("<table><thead><tr>" + header.map((c) => `<th>${inline(c)}</th>`).join("") + "</tr></thead><tbody>");
+      i += 2;
+      while (i < lines.length && TABLE_ROW.test(lines[i])) {
+        const cells = splitTableRow(lines[i]);
+        html.push("<tr>" + cells.map((c) => `<td>${inline(c)}</td>`).join("") + "</tr>");
+        i++;
+      }
+      html.push("</tbody></table>");
       continue;
     }
 
     if (/^-{3,}$/.test(line.trim())) {
       flushParagraph();
-      closeList();
+      closeAllLists();
       html.push("<hr>");
+      i++;
       continue;
     }
 
     const heading = line.match(/^(#{1,4})\s+(.*)$/);
     if (heading) {
       flushParagraph();
-      closeList();
+      closeAllLists();
       const level = heading[1].length + 1; // h2..h5, h1 reservado pro título da fase
       html.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+      i++;
       continue;
     }
 
-    const listItem = line.match(/^[-*]\s+(.*)$/);
-    if (listItem) {
+    const unordered = line.match(UNORDERED_ITEM);
+    const ordered = !unordered ? line.match(ORDERED_ITEM) : null;
+    const listMatch = unordered ?? ordered;
+    if (listMatch) {
       flushParagraph();
-      if (!inList) {
-        html.push("<ul>");
-        inList = true;
+      const indent = listMatch[1].length;
+      const content = listMatch[2];
+      const isOrdered = !!ordered;
+
+      closeListsDeeperThan(indent + 1);
+
+      const top = listStack[listStack.length - 1];
+      if (!top || top.indent < indent) {
+        listStack.push({ indent, ordered: isOrdered, liOpen: false });
+        html.push(isOrdered ? "<ol>" : "<ul>");
+      } else if (top.liOpen) {
+        html.push("</li>");
       }
-      html.push(`<li>${inline(listItem[1])}</li>`);
+
+      html.push(`<li>${inline(content)}`);
+      listStack[listStack.length - 1].liOpen = true;
+      i++;
       continue;
     }
 
     if (line.trim() === "") {
       flushParagraph();
-      closeList();
+      closeAllLists();
+      i++;
+      continue;
+    }
+
+    // Continuação de um item de lista (linha indentada sem marcador,
+    // logo abaixo de um <li> aberto) — anexa ao mesmo item em vez de
+    // virar um parágrafo solto.
+    if (listStack.length && listStack[listStack.length - 1].liOpen && /^\s+\S/.test(rawLine)) {
+      html.push(" " + inline(line.trim()));
+      i++;
       continue;
     }
 
     paragraph.push(line.trim());
+    i++;
   }
 
   flushParagraph();
-  closeList();
+  closeAllLists();
   if (inCodeBlock) html.push("</code></pre>");
 
   return html.join("\n");

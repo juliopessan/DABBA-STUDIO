@@ -111,7 +111,22 @@ section.phase {
 .phase-content h3 { font-size: 16px; margin-top: 22px; }
 .phase-content h4 { font-size: 14px; margin-top: 18px; }
 .phase-content p { line-height: 1.7; }
-.phase-content ul { line-height: 1.7; padding-left: 22px; }
+.phase-content ul, .phase-content ol { line-height: 1.7; padding-left: 22px; }
+.phase-content ul ul, .phase-content ol ol, .phase-content ul ol, .phase-content ol ul { margin-top: 4px; }
+.phase-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+.phase-content th, .phase-content td {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.phase-content th { background: var(--bg); font-family: "Fraunces", serif; }
+.phase-content hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
 .phase-content pre {
   background: var(--bg);
   border: 1px solid var(--border);
