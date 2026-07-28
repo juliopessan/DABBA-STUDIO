@@ -100,3 +100,59 @@
 - **Segredos:** chave da OpenRouter fica em `agent-server/.env` (git-
   ignorado, nunca commitado). `.env.example` documenta as variáveis sem
   valores reais.
+
+## 2026-07-28 — Upload de documentos (PDF/DOCX/HTML/TXT)
+
+- Extração de texto feita **server-side** (não no browser) para evitar a
+  complexidade de bundlar `pdfjs-dist`/worker no Vite — `agent-server` usa
+  `pdf-parse` (PDF), `mammoth` (DOCX), regex simples para strip de tags
+  HTML, e passthrough para TXT/MD.
+- `multer` (v2.x — a 1.x tem CVEs conhecidos, trocada explicitamente)
+  com `memoryStorage` para o upload multipart, limite de 15MB.
+- Endpoint `POST /extract-text`, testado com os 5 formatos usando
+  arquivos reais gerados via `textutil`/`cupsfilter` (ferramentas nativas
+  do macOS) — todos extraem corretamente. `.doc` (binário antigo) retorna
+  415 com mensagem pedindo conversão para `.docx`.
+- GUI: botão "Anexar arquivo" (ícone SVG próprio, sem lib de ícones) no
+  `CommandPanel`, injeta o texto extraído no textarea de contexto.
+
+## 2026-07-28 — Pipeline completo com persistência em SQLite
+
+- **Motivação do usuário:** após upload da RFP, o fluxo deve rodar todas
+  as fases (Discovery → PRD → Architecture → Backlog → Business Case)
+  sequencialmente, cada uma usando o artefato da anterior como premissa,
+  até um documento final consolidado.
+- **Persistência:** `node:sqlite` (`DatabaseSync`) nativo do Node — sem
+  dependência extra, evita problemas de compilação nativa do
+  `better-sqlite3`. Banco em `agent-server/data/dabba.sqlite` (gitignored).
+  Schema: `pipeline_runs` (run, status, project_name) e
+  `phase_artifacts` (cada output de fase, com provider/model usados).
+- **Ordem das fases e comandos:** segue exatamente o que já estava
+  documentado no `CLAUDE.md` original do DPABB-Framework —
+  `discovery *start` → `prd *generate` → `architect *design` →
+  `backlog *breakdown` → `business-case *analyze`. Não inventei uma nova
+  sequência; reaproveitei a que o framework já definia.
+- **Execução em background:** `POST /pipeline/run` cria o run e dispara o
+  processamento assíncrono sem bloquear a resposta HTTP (retorna
+  `runId` na hora); GUI faz polling em `GET /pipeline/:id` a cada 3s.
+- **Documento consolidado:** `agent-server/src/pipeline/htmlReport.ts`
+  gera um HTML standalone com o mesmo tema visual da DABBA Studio (oat +
+  terracota + Fraunces/Inter), TOC com âncoras, uma seção por fase com o
+  **conteúdo completo** de cada artefato (não um resumo).
+- **Markdown → HTML:** conversor próprio em `pipeline/markdown.ts` (sem
+  lib externa) — cobre headers, negrito/itálico, código, listas,
+  parágrafos e `---` como `<hr>`. **Bug encontrado e corrigido durante
+  teste real:** quando o modelo envolve a resposta inteira num bloco
+  ` ```markdown ` (às vezes com preâmbulo/posfácio soltos fora do fence,
+  ex: "Se quiser ajustar, posso refinar! 😊"), o parser tratava tudo como
+  código literal. Corrigido detectando o conteúdo entre o primeiro e o
+  último marcador de fence quando isso cobre >50% do texto — descarta a
+  conversa em volta, preserva blocos de código curtos legítimos.
+- **Testado de ponta a ponta com chamadas reais** (RFP de exemplo sobre
+  sistema de estoque para varejo): as 5 fases rodaram via OpenRouter,
+  cada uma referenciando o contexto da anterior, run salvo em SQLite,
+  HTML consolidado gerado e validado visualmente no browser (título,
+  TOC, formatação de cada seção, incluindo depois do fix do bug acima).
+- `agent-server/scripts/regenerate-report.ts`: utilitário para regenerar
+  o HTML de um run já persistido sem re-rodar os LLMs (usado para validar
+  o fix do markdown sem gastar chamadas novamente).

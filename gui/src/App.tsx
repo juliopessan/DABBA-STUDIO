@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { fetchAgents, type AgentSummary } from "./api";
 import AgentGrid from "./components/AgentGrid";
 import CommandPanel from "./components/CommandPanel";
+import PipelineRunner from "./components/PipelineRunner";
 
 export default function App() {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
@@ -58,6 +59,12 @@ export default function App() {
           </motion.p>
         )}
       </AnimatePresence>
+
+      <PipelineRunner />
+
+      <h2 style={{ fontFamily: "var(--dabba-font-display)", fontSize: 20, margin: "0 0 12px" }}>
+        Agentes individuais
+      </h2>
 
       <AgentGrid agents={agents} selectedId={selectedId} onSelect={setSelectedId} />
 

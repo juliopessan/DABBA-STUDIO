@@ -53,8 +53,39 @@ para o domínio de análise de requisitos técnicos do DPABB-Framework.
 
 - ✅ `agent-server`: registry de agentes + execução de comandos via LLM (BYOK)
 - ✅ `gui`: DABBA Studio consumindo o agent-server (lista de agentes, comandos, execução)
+- ✅ Upload de RFP/documentos: PDF, DOCX, HTML, TXT/MD → extração de texto server-side
+- ✅ Pipeline completo: Discovery → PRD → Architecture → Backlog → Business Case,
+  persistido em SQLite, com documento HTML consolidado final
 - 🚧 `desktop-shell`: shell Tauri inicializado, empacotamento ainda pendente
 - Ver histórico de decisões em `docs/decisions.md`
+
+## Pipeline completo (upload → 5 fases → relatório consolidado)
+
+Na seção "Pipeline completo" da GUI (ou via API), anexe uma RFP e o
+`agent-server` roda as 5 fases sequencialmente — cada uma usando o
+artefato da fase anterior como premissa/contexto, na ordem documentada no
+framework original:
+
+1. `discovery` (`*start`)
+2. `prd` (`*generate`)
+3. `architecture` (`*design`)
+4. `backlog` (`*breakdown`)
+5. `business-case` (`*analyze`)
+
+Cada artefato é salvo em `agent-server/data/dabba.sqlite` (tabelas
+`pipeline_runs` e `phase_artifacts`). Ao final, um documento HTML
+consolidado (todas as fases, conteúdo completo — não um resumo) é gerado
+em `agent-server/data/output/{runId}.html`, estilizado com a identidade
+visual da DABBA Studio, e servido em `GET /pipeline/:id/report.html`.
+
+**API:**
+- `POST /pipeline/run { projectName, rfpText }` — dispara o pipeline em
+  background, retorna `runId` imediatamente
+- `GET /pipeline/:id` — status + artefatos (para polling)
+- `GET /pipeline/:id/report.html` — documento consolidado
+
+**Upload de arquivos:** `POST /extract-text` (multipart, campo `file`)
+aceita PDF, DOCX, HTML/HTM e TXT/MD, retornando o texto extraído.
 
 ## Rodando localmente
 

@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { AgentSummary, RunResult } from "../api";
-import { runCommand } from "../api";
+import { extractTextFromFile, runCommand } from "../api";
 import ThinkingDots from "./ThinkingDots";
+import UploadIcon from "./UploadIcon";
+
+const ACCEPTED_EXTENSIONS = ".pdf,.doc,.docx,.html,.htm,.txt,.md";
 
 interface Props {
   agent: AgentSummary;
@@ -14,6 +17,28 @@ export default function CommandPanel({ agent }: Props) {
   const [result, setResult] = useState<RunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const { filename, text } = await extractTextFromFile(file);
+      setAttachedFile(filename);
+      setInput((prev) => (prev ? `${prev}\n\n--- ${filename} ---\n${text}` : `--- ${filename} ---\n${text}`));
+    } catch (err) {
+      setUploadError((err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleRun() {
     setLoading(true);
@@ -78,7 +103,7 @@ export default function CommandPanel({ agent }: Props) {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         rows={4}
-        placeholder="Contexto para o comando (opcional)"
+        placeholder="Contexto para o comando (opcional) — ou anexe um arquivo"
         style={{
           width: "100%",
           resize: "vertical",
@@ -90,6 +115,44 @@ export default function CommandPanel({ agent }: Props) {
           background: "var(--dabba-bg)",
         }}
       />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ACCEPTED_EXTENSIONS}
+        onChange={handleFileSelected}
+        style={{ display: "none" }}
+      />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title="Anexar PDF, DOCX, HTML ou TXT/MD"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 12px",
+            borderRadius: 999,
+            border: "1px solid var(--dabba-border)",
+            background: "var(--dabba-surface)",
+            color: "var(--dabba-ink-soft)",
+            fontSize: 13,
+            cursor: uploading ? "default" : "pointer",
+          }}
+        >
+          {uploading ? <ThinkingDots /> : <UploadIcon />}
+          {uploading ? "Lendo arquivo…" : "Anexar arquivo"}
+        </button>
+
+        {attachedFile && !uploading && (
+          <span style={{ fontSize: 12, color: "var(--dabba-sage)" }}>Anexado: {attachedFile}</span>
+        )}
+        {uploadError && (
+          <span style={{ fontSize: 12, color: "var(--dabba-clay-dark)" }}>{uploadError}</span>
+        )}
+      </div>
 
       <div style={{ marginTop: 16 }}>
         <motion.button
