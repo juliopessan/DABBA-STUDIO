@@ -16,10 +16,14 @@ function inline(text: string): string {
 // Agentes frequentemente envolvem a resposta inteira num único bloco
 // ```markdown ... ```, às vezes com um preâmbulo ("Segue o PRD:") antes ou
 // uma nota solta ("Se quiser ajustar...") depois. Sem isso, o parser
-// trataria o documento inteiro como código literal. Pega o conteúdo entre
-// o primeiro e o último marcador de fence quando isso cobre a maior parte
-// do texto — descarta a conversa em volta, mantém blocos de código curtos
-// legítimos intactos (não dispara se o fence for uma fração pequena).
+// trataria o documento inteiro como código literal.
+//
+// Só desembrulha quando há EXATAMENTE um par de fences no documento inteiro
+// (a resposta inteira = 1 bloco). Documentos com múltiplos blocos de código
+// legítimos (ex: vários diagramas ```mermaid na fase de arquitetura) têm
+// mais de 2 marcadores — nesse caso cada fence deve ser tratado
+// individualmente pelo parser, não descartado como se fosse um wrapper
+// único (fazer isso quebra o pareamento de todos os fences internos).
 function unwrapOuterCodeFence(markdown: string): string {
   const fenceLine = /^\s*```[a-z]*\s*$/im;
   const lines = markdown.split("\n");
@@ -28,10 +32,9 @@ function unwrapOuterCodeFence(markdown: string): string {
     return acc;
   }, []);
 
-  if (fenceIndexes.length < 2) return markdown;
+  if (fenceIndexes.length !== 2) return markdown;
 
-  const first = fenceIndexes[0];
-  const last = fenceIndexes[fenceIndexes.length - 1];
+  const [first, last] = fenceIndexes;
   const inner = lines.slice(first + 1, last).join("\n");
 
   return inner.length > markdown.length * 0.5 ? inner : markdown;

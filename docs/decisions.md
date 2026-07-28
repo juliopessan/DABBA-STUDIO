@@ -156,3 +156,28 @@
 - `agent-server/scripts/regenerate-report.ts`: utilitário para regenerar
   o HTML de um run já persistido sem re-rodar os LLMs (usado para validar
   o fix do markdown sem gastar chamadas novamente).
+
+## 2026-07-28 — Fix: fase Architecture renderizando como código literal
+
+- **Sintoma reportado pelo usuário:** documento consolidado real (run do
+  usuário, RFP "SmallProjectScopeRFP") saindo com "muito markdown" visível
+  em vez de HTML limpo — a seção Architecture inteira virou um bloco de
+  código monoespaçado (0 headers, 0 negrito renderizado).
+- **Causa raiz:** a fase Architecture gera vários diagramas
+  ` ```mermaid ` legítimos (um por fase do TOGAF ADM). A heurística de
+  "desembrulhar fence externo" (adicionada para o bug do business-case)
+  pegava o **primeiro e o último marcador de fence do documento inteiro**
+  — nesse caso isso capturou a abertura do 1º diagrama e o fechamento do
+  8º, quebrando o pareamento de todos os fences no meio. O restante do
+  parser ficou com o estado de "dentro de bloco de código" dessincronizado
+  e engoliu quase tudo como `<pre>`.
+- **Fix:** a heurística agora só dispara quando há **exatamente 2**
+  marcadores de fence no documento inteiro (ou seja, a resposta inteira é
+  literalmente 1 bloco único) — `agent-server/src/pipeline/markdown.ts`.
+  Documentos com múltiplos blocos de código reais (>2 marcadores) não são
+  tocados; cada fence é processado individualmente pelo parser normal.
+- **Validado:** regenerado o HTML do run real do usuário
+  (`c47e82df-ba4d-4e68-82d4-28ad02f7b9e3`) sem re-rodar os LLMs (via
+  `scripts/regenerate-report.ts`) — confirmado headers/negrito voltando a
+  aparecer em todas as 5 fases, e os 8 diagramas Mermaid da Architecture
+  continuam corretamente isolados em blocos `<pre>`.
