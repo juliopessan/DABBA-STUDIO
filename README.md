@@ -4,14 +4,12 @@
 commercial identity of the **DPABB** agentic framework (technical internal
 name, preserved in the code, packages, and architecture documentation).
 
-Desktop product (app + GUI + connectors) that exposes the
-[DPABB-Framework](../DPABB-Framework) agent pipeline — Discovery, PRD,
+Desktop product agent pipeline — Discovery, PRD,
 Architect, Backlog, Business Case — as its own "OpenWorker": an agent that
 runs locally, delivers real artifacts (documents, diagrams, backlog), and
 connects to the tools the user already relies on.
 
-Inspired by the [OpenWorker](https://github.com/andrewyng/openworker)
-architecture (desktop shell + agent server + connectors), adapted for
+Inspired by architecture (desktop shell + agent server + connectors), adapted for
 Node/TypeScript and for the DPABB-Framework's technical requirements-analysis
 domain.
 
