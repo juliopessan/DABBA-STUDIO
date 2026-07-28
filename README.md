@@ -14,6 +14,95 @@ Inspirado na arquitetura do [OpenWorker](https://github.com/andrewyng/openworker
 (desktop shell + agent server + conectores), adaptado para Node/TypeScript e
 para o domínio de análise de requisitos técnicos do DPABB-Framework.
 
+---
+
+```
+RFP  →  5 fases encadeadas  →  Estado persistido  →  Documento consolidado
+```
+
+*Em vez de um especialista conduzir a análise fase a fase, o documento de
+entrada percorre a cadeia sozinho e sai do outro lado como um pacote pronto
+para o cliente.*
+
+---
+
+## 1. O Cenário Atual
+
+O método já existia e funcionava: cinco especialistas, cada um com seu escopo,
+produzindo os artefatos na ordem certa. O que custava caro era a condução —
+alguém precisava acionar cada fase, carregar o contexto de uma para a outra e
+juntar no fim o que ficou espalhado em arquivos soltos. A qualidade da entrega
+dependia de quem estava conduzindo.
+
+```mermaid
+flowchart LR
+    RFP[RFP] --> D[Discovery] --> P[PRD] --> A[Architecture] --> B[Backlog] --> BC[Business Case] --> OUT[Entrega]
+    COND["Condução<br/>manual, fase a fase"] -.-> D
+    EST["Estado<br/>arquivos .md soltos"] -.-> OUT
+```
+
+> **A limitação:** o valor não estava preso nos agentes, estava preso na pessoa
+> que sabia conduzi-los.
+
+## 2. O Que Muda
+
+A cadeia de análise permanece exatamente a mesma — as cinco fases, na mesma
+ordem, com as mesmas personas e os mesmos comandos definidos no framework
+original. O que muda é a camada em volta: quem conduz deixa de ser uma pessoa e
+passa a ser o `agent-server`, o estado deixa de ser arquivo solto e passa a ser
+base consultável, e a entrega deixa de ser um punhado de markdown e passa a ser
+um documento único.
+
+```mermaid
+flowchart LR
+    RFP[RFP] --> D[Discovery] --> P[PRD] --> A[Architecture] --> B[Backlog] --> BC[Business Case] --> OUT[Entrega]
+    COND["Condução<br/>agent-server encadeia"] -.-> D
+    EST["Estado<br/>SQLite consultável"] -.-> OUT
+
+    classDef delta fill:#FF5800,stroke:#C43E00,color:#ffffff,font-weight:bold
+    class COND,EST,OUT delta
+```
+
+As cinco fases seguem em cinza porque não foram tocadas — o destaque marca
+apenas o que efetivamente mudou.
+
+**O que entrou para sustentar a mudança**
+
+| Camada | Componente | Papel |
+|--------|-----------|-------|
+| Condução | `agent-server/src/pipeline/orchestrator.ts` | Encadeia as 5 fases, passando o artefato de cada uma como premissa da seguinte |
+| Estado | `agent-server/src/db/sqlite.ts` | Persiste cada execução e cada artefato, com o modelo que o produziu |
+| Entrega | `agent-server/src/pipeline/htmlReport.ts` | Consolida todas as fases num documento HTML único |
+| Interface | `gui/` (DABBA Studio) | Anexar a RFP, acompanhar as fases e abrir o resultado |
+
+## 3. O Resultado
+
+- **A análise não depende mais de quem conduz.** Quem anexa a RFP não precisa
+  conhecer a ordem das fases nem como passar contexto entre elas.
+- **Rastreabilidade completa.** Cada artefato fica gravado com a fase, o
+  comando e o modelo que o gerou — dá para auditar como cada conclusão foi
+  produzida.
+- **Entrega em uma peça.** O cliente recebe um documento navegável com o
+  conteúdo integral das cinco fases, não uma pasta de arquivos.
+- **Custo sob controle.** Roda com a chave do próprio usuário e, por padrão,
+  em modelos gratuitos com troca automática quando um deles falha ou estoura
+  a cota.
+
+### Prova
+
+Execução real, de ponta a ponta, a partir de uma RFP de exemplo
+(`SmallProjectScopeRFP.pdf`):
+
+| Medida | Valor |
+|--------|-------|
+| Fases concluídas | 5 de 5 |
+| Tempo total | 7min 15s |
+| Intervenções manuais | 0 (após anexar a RFP) |
+| Provider | OpenRouter, modelos gratuitos com fallback |
+| Saída | 1 documento HTML consolidado + registro em SQLite |
+
+---
+
 ## Sub-marcas
 
 | Nome | Papel |
@@ -56,6 +145,7 @@ para o domínio de análise de requisitos técnicos do DPABB-Framework.
 - ✅ Upload de RFP/documentos: PDF, DOCX, HTML, TXT/MD → extração de texto server-side
 - ✅ Pipeline completo: Discovery → PRD → Architecture → Backlog → Business Case,
   persistido em SQLite, com documento HTML consolidado final
+- ✅ UI/UX: ícones por agente, dark mode, timeline animada do pipeline, drag-and-drop
 - 🚧 `desktop-shell`: shell Tauri inicializado, empacotamento ainda pendente
 - Ver histórico de decisões em `docs/decisions.md`
 
