@@ -423,3 +423,80 @@
   chamada de LLM real, e ao "Sair" os dois processos morreram juntos e a
   porta 8765 ficou livre. Esse é o mesmo caminho que um usuário real
   percorreria.
+
+## 2026-07-28 — Ícone customizado, botão do relatório e degradação das fases
+
+Três pedidos do usuário no mesmo turno, tratados em conjunto.
+
+### Ícone do app (símbolo próprio, mesma linguagem visual do Claude)
+
+Fundo squircle sólido na cor terracota da marca (`#D97757` — mesmo tom do
+Anthropic Orange) com um símbolo branco minimalista centralizado: um núcleo
+com 4 nós conectados, representando os agentes orquestrados por um
+pipeline central — não um clone do sunburst do Claude, mas a mesma
+gramática visual (fundo sólido + ícone branco simples). Fonte em
+`desktop-shell/src-tauri/icons/source/dabba-icon.svg`; todos os tamanhos
+(macOS `.icns`, Windows `.ico`, Android, iOS, Appx) regenerados via
+`tauri icon <fonte.png>`. Validado em 32×32: o símbolo continua legível
+(núcleo + 4 linhas formam uma cruz reconhecível mesmo minúsculo).
+
+### Bug real: botão "Abrir documento consolidado" não fazia nada
+
+Causa raiz: `<a target="_blank">` dentro da webview nativa do Tauri não
+abre uma janela do navegador do sistema — a GUI não tinha nenhuma
+dependência `@tauri-apps/*` instalada, então mesmo com o
+`tauri-plugin-shell` registrado no lado Rust (para o sidecar), não havia
+como o lado JS pedir pra abrir uma URL externa. Corrigido:
+- `@tauri-apps/api` + `@tauri-apps/plugin-shell` instalados na GUI
+- `gui/src/openExternal.ts`: detecta `"__TAURI_INTERNALS__" in window`
+  (o global real injetado pelo Tauri v2, confirmado lendo o próprio
+  `core.js` do pacote) — usa `plugin-shell`'s `open()` dentro do Tauri,
+  cai para `window.open` normal no browser comum (dev via `npm run dev`)
+- `capabilities/default.json` ganhou `shell:allow-open` escopado por
+  regex (`^https?://localhost(:\d+)?/.*$`) — só permite abrir URLs
+  locais do próprio agent-server, não qualquer URL arbitrária
+- Trocado o `<motion.a>` por `<motion.button onClick={() =>
+  openExternal(...)}>` no `PipelineRunner.tsx`
+
+### Bug real de robustez: uma falha de rede isolada travava o polling pra sempre
+
+`useEffect` do polling do pipeline dava `clearInterval` no primeiro
+`catch` — uma única falha transitória de rede (comum em webview nativa)
+parava de checar o status permanentemente, mesmo que o pipeline
+continuasse rodando no backend por mais vários minutos e terminasse com
+sucesso. Corrigido: só desiste depois de 5 falhas consecutivas
+(`agent-server` inteiro caído/porta fechada), não numa falha isolada.
+
+### Bug real e mais sério: fases "conversando" em vez de executar
+
+Ao repetir o teste completo do pipeline (5 fases encadeadas) pelo binário
+SEA, o *output* de várias fases veio degradado — em vez de gerar o
+artefato, o modelo respondia como se estivesse confirmando uma pergunta
+da fase anterior: *"Resposta: Sim, procedemos com a validação de
+rastreabilidade..."*, *"Resposta: Sim, gerarei o arquivo backlog.md..."*.
+O pipeline **terminava com sucesso** (status `done`, HTML gerado) mas o
+**conteúdo** de Architecture, Backlog e Business Case estava errado —
+provavelmente a causa raiz do "problemas na execução completa" relatado.
+
+Causa raiz: as personas foram escritas para um workflow humano-no-loop
+(fazem perguntas de esclarecimento, terminam pedindo confirmação —
+"Confirme se deseja *review* ou *trace*?"). No pipeline automatizado não
+há humano pra responder; o próximo comando recebe esse texto de pergunta
+como `input` e, sem instrução em contrário, o modelo trata aquilo como
+uma pergunta dirigida a ele mesmo e "responde" em vez de executar sua
+própria fase — degenerando em cascata pelas fases seguintes.
+
+**Fix:** `RunRequest` ganhou um campo `autoMode?: boolean`
+(`llm/provider.ts`). Quando `true`, prefixa o `systemPrompt` com uma
+instrução explícita: modo pipeline automatizado, nunca perguntar/pedir
+confirmação, gerar o artefato completo direto adotando suposições
+razoáveis e documentadas. `orchestrator.ts` passa `autoMode: true` em
+toda chamada do pipeline (não afeta a execução individual via
+`CommandPanel`, onde um humano real está de fato interagindo e pode
+querer as perguntas de elicitação).
+
+**Validado repetindo o mesmo teste**, comparando antes/depois: sem
+`autoMode`, Architecture saía como "Confirmação de próximo passo..." em
+vez do TOGAF ADM; com `autoMode`, saiu `# architecture.md` com as fases A-E
+de verdade. Backlog saiu com Epics reais em vez de "Resposta: Sim,
+gerarei o arquivo...". Mesmo padrão corrigido nas 5 fases.

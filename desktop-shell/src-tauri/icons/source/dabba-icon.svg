@@ -1,0 +1,25 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fundo squircle sólido, mesma linguagem visual de ícone de app macOS
+       (cantos super-elípticos), na cor terracota da marca DABBA. -->
+  <rect width="1024" height="1024" rx="224" ry="224" fill="#D97757"/>
+
+  <!-- Símbolo: núcleo central orquestrando 4 nós — representa os agentes
+       (Discovery, PRD, Architecture, Backlog, Business) coordenados por
+       um pipeline central. Traço branco, estilo geométrico minimalista. -->
+  <g stroke="#FFFFFF" stroke-width="34" stroke-linecap="round" fill="none">
+    <!-- conexões do núcleo até os 4 nós satélite -->
+    <line x1="512" y1="512" x2="512" y2="300"/>
+    <line x1="512" y1="512" x2="512" y2="724"/>
+    <line x1="512" y1="512" x2="300" y2="512"/>
+    <line x1="512" y1="512" x2="724" y2="512"/>
+  </g>
+
+  <!-- nós satélite -->
+  <circle cx="512" cy="266" r="56" fill="#FFFFFF"/>
+  <circle cx="512" cy="758" r="56" fill="#FFFFFF"/>
+  <circle cx="266" cy="512" r="56" fill="#FFFFFF"/>
+  <circle cx="758" cy="512" r="56" fill="#FFFFFF"/>
+
+  <!-- núcleo central, maior, marcando o ponto de orquestração -->
+  <circle cx="512" cy="512" r="92" fill="#FFFFFF"/>
+</svg>

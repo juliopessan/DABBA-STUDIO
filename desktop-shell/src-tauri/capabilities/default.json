@@ -15,6 +15,14 @@
           "sidecar": true
         }
       ]
+    },
+    {
+      "identifier": "shell:allow-open",
+      "allow": [
+        {
+          "url": "^https?://localhost(:\\d+)?/.*$"
+        }
+      ]
     }
   ]
 }

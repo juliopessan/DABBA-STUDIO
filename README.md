@@ -1,254 +1,336 @@
 # DABBA
 
-**DABBA** — *Discovery, Architecture, Backlog and Business Analysis* — é a
-identidade comercial do framework agentic **DPABB** (nome técnico interno,
-preservado no código, nos pacotes e na documentação de arquitetura).
+**DABBA** — *Discovery, Architecture, Backlog and Business Analysis* — is the
+commercial identity of the **DPABB** agentic framework (technical internal
+name, preserved in the code, packages, and architecture documentation).
 
-Produto desktop (app + GUI + conectores) que expõe o pipeline de agentes do
-[DPABB-Framework](../DPABB-Framework) — Discovery, PRD, Architect, Backlog,
-Business Case — como um "OpenWorker" próprio: um agente que roda localmente,
-entrega artefatos reais (documentos, diagramas, backlog) e se conecta às
-ferramentas que o usuário já usa.
+Desktop product (app + GUI + connectors) that exposes the
+[DPABB-Framework](../DPABB-Framework) agent pipeline — Discovery, PRD,
+Architect, Backlog, Business Case — as its own "OpenWorker": an agent that
+runs locally, delivers real artifacts (documents, diagrams, backlog), and
+connects to the tools the user already relies on.
 
-Inspirado na arquitetura do [OpenWorker](https://github.com/andrewyng/openworker)
-(desktop shell + agent server + conectores), adaptado para Node/TypeScript e
-para o domínio de análise de requisitos técnicos do DPABB-Framework.
-
----
-
-```
-RFP  →  5 fases encadeadas  →  Estado persistido  →  Documento consolidado
-```
-
-*Em vez de um especialista conduzir a análise fase a fase, o documento de
-entrada percorre a cadeia sozinho e sai do outro lado como um pacote pronto
-para o cliente.*
+Inspired by the [OpenWorker](https://github.com/andrewyng/openworker)
+architecture (desktop shell + agent server + connectors), adapted for
+Node/TypeScript and for the DPABB-Framework's technical requirements-analysis
+domain.
 
 ---
 
-## 1. O Cenário Atual
-
-O método já existia e funcionava: cinco especialistas, cada um com seu escopo,
-produzindo os artefatos na ordem certa. O que custava caro era a condução —
-alguém precisava acionar cada fase, carregar o contexto de uma para a outra e
-juntar no fim o que ficou espalhado em arquivos soltos. A qualidade da entrega
-dependia de quem estava conduzindo.
-
-```mermaid
-flowchart LR
-    RFP[RFP] --> D[Discovery] --> P[PRD] --> A[Architecture] --> B[Backlog] --> BC[Business Case] --> OUT[Entrega]
-    COND["Condução<br/>manual, fase a fase"] -.-> D
-    EST["Estado<br/>arquivos .md soltos"] -.-> OUT
+```
+RFP  →  5 chained phases  →  Persisted state  →  Consolidated document
 ```
 
-> **A limitação:** o valor não estava preso nos agentes, estava preso na pessoa
-> que sabia conduzi-los.
+*Instead of a specialist driving the analysis phase by phase, the input
+document travels the chain on its own and comes out the other end as a
+package ready for the client.*
 
-## 2. O Que Muda
+---
 
-A cadeia de análise permanece exatamente a mesma — as cinco fases, na mesma
-ordem, com as mesmas personas e os mesmos comandos definidos no framework
-original. O que muda é a camada em volta: quem conduz deixa de ser uma pessoa e
-passa a ser o `agent-server`, o estado deixa de ser arquivo solto e passa a ser
-base consultável, e a entrega deixa de ser um punhado de markdown e passa a ser
-um documento único.
+## 1. The Current Scenario
+
+The method already existed and worked: five specialists, each with their own
+scope, producing artifacts in the right order. What was expensive was the
+driving — someone had to trigger each phase, carry context from one to the
+next, and stitch together at the end what ended up scattered across loose
+files. Delivery quality depended on who was driving.
 
 ```mermaid
 flowchart LR
-    RFP[RFP] --> D[Discovery] --> P[PRD] --> A[Architecture] --> B[Backlog] --> BC[Business Case] --> OUT[Entrega]
-    COND["Condução<br/>agent-server encadeia"] -.-> D
-    EST["Estado<br/>SQLite consultável"] -.-> OUT
+    RFP[RFP] --> D[Discovery] --> P[PRD] --> A[Architecture] --> B[Backlog] --> BC[Business Case] --> OUT[Delivery]
+    COND["Driving<br/>manual, phase by phase"] -.-> D
+    EST["State<br/>loose .md files"] -.-> OUT
+```
+
+> **The limitation:** the value wasn't locked in the agents — it was locked
+> in the person who knew how to drive them.
+
+## 2. What Changes
+
+The analysis chain stays exactly the same — the same five phases, in the
+same order, with the same personas and the same commands defined in the
+original framework. What changes is the layer around it: driving stops being
+a person and becomes the `agent-server`; state stops being a loose file and
+becomes a queryable database; delivery stops being a handful of markdown
+files and becomes a single document.
+
+```mermaid
+flowchart LR
+    RFP[RFP] --> D[Discovery] --> P[PRD] --> A[Architecture] --> B[Backlog] --> BC[Business Case] --> OUT[Delivery]
+    COND["Driving<br/>agent-server chains it"] -.-> D
+    EST["State<br/>queryable SQLite"] -.-> OUT
 
     classDef delta fill:#FF5800,stroke:#C43E00,color:#ffffff,font-weight:bold
     class COND,EST,OUT delta
 ```
 
-As cinco fases seguem em cinza porque não foram tocadas — o destaque marca
-apenas o que efetivamente mudou.
+The five phases stay gray because they weren't touched — the highlight marks
+only what actually changed.
 
-**O que entrou para sustentar a mudança**
+**What came in to support the change**
 
-| Camada | Componente | Papel |
-|--------|-----------|-------|
-| Condução | `agent-server/src/pipeline/orchestrator.ts` | Encadeia as 5 fases, passando o artefato de cada uma como premissa da seguinte |
-| Estado | `agent-server/src/db/sqlite.ts` | Persiste cada execução e cada artefato, com o modelo que o produziu |
-| Entrega | `agent-server/src/pipeline/htmlReport.ts` | Consolida todas as fases num documento HTML único |
-| Interface | `gui/` (DABBA Studio) | Anexar a RFP, acompanhar as fases e abrir o resultado |
+| Layer | Component | Role |
+|-------|-----------|------|
+| Driving | `agent-server/src/pipeline/orchestrator.ts` | Chains the 5 phases, passing each phase's artifact as the premise for the next |
+| State | `agent-server/src/db/sqlite.ts` | Persists every run and every artifact, along with the model that produced it |
+| Delivery | `agent-server/src/pipeline/htmlReport.ts` | Consolidates all phases into a single HTML document |
+| Interface | `gui/` (DABBA Studio) | Attach the RFP, follow the phases, open the result |
 
-## 3. O Resultado
+## 3. The Result
 
-- **A análise não depende mais de quem conduz.** Quem anexa a RFP não precisa
-  conhecer a ordem das fases nem como passar contexto entre elas.
-- **Rastreabilidade completa.** Cada artefato fica gravado com a fase, o
-  comando e o modelo que o gerou — dá para auditar como cada conclusão foi
-  produzida.
-- **Entrega em uma peça.** O cliente recebe um documento navegável com o
-  conteúdo integral das cinco fases, não uma pasta de arquivos.
-- **Custo sob controle.** Roda com a chave do próprio usuário e, por padrão,
-  em modelos gratuitos com troca automática quando um deles falha ou estoura
-  a cota.
+- **Analysis no longer depends on who drives it.** Whoever attaches the RFP
+  doesn't need to know the phase order or how to carry context between them.
+- **Full traceability.** Every artifact is recorded with the phase, the
+  command, and the model that generated it — you can audit how each
+  conclusion was produced.
+- **Delivery in one piece.** The client gets a navigable document with the
+  full content of all five phases, not a folder of files.
+- **Cost under control.** Runs on the user's own key and, by default, on free
+  models with automatic fallback when one fails or hits its quota.
 
-### Prova
+### Proof
 
-Execução real, de ponta a ponta, a partir de uma RFP de exemplo
-(`SmallProjectScopeRFP.pdf`):
+Real, end-to-end run from a sample RFP (`SmallProjectScopeRFP.pdf`):
 
-| Medida | Valor |
-|--------|-------|
-| Fases concluídas | 5 de 5 |
-| Tempo total | 7min 15s |
-| Intervenções manuais | 0 (após anexar a RFP) |
-| Provider | OpenRouter, modelos gratuitos com fallback |
-| Saída | 1 documento HTML consolidado + registro em SQLite |
+| Measure | Value |
+|---------|-------|
+| Phases completed | 5 of 5 |
+| Total time | 7min 15s |
+| Manual interventions | 0 (after attaching the RFP) |
+| Provider | OpenRouter, free models with fallback |
+| Output | 1 consolidated HTML document + SQLite record |
 
 ---
 
-## Sub-marcas
+## Sub-brands
 
-| Nome | Papel |
-|------|-------|
-| **DABBA Studio** | Interface principal (este `gui/` + `desktop-shell/`) |
-| **DABBA Agents** | Os 5 agentes especializados (Scout, Priya, Aria, Ben, Biz) |
-| **DABBA Canvas** | Discovery visual (futuro) |
-| **DABBA Architect** | Geração de arquitetura (mapeado ao agente `architect`) |
-| **DABBA Business** | Business case e viabilidade (mapeado ao agente `business-case`) |
+| Name | Role |
+|------|------|
+| **DABBA Studio** | Main interface (this `gui/` + `desktop-shell/`) |
+| **DABBA Agents** | The 5 specialized agents (Scout, Priya, Aria, Ben, Biz) |
+| **DABBA Canvas** | Visual discovery (future) |
+| **DABBA Architect** | Architecture generation (mapped to the `architect` agent) |
+| **DABBA Business** | Business case and feasibility (mapped to the `business-case` agent) |
 
-## Arquitetura
+## Architecture
 
 ```
 ┌──────────────────────────────────────────────┐
-│           desktop-shell (Tauri)               │  shell nativo + janela
+│           desktop-shell (Tauri)               │  native shell + window
 ├────────────────────────────────────────────────┤
-│         DABBA Studio (React + Vite)           │  chat, pipeline, artefatos
+│         DABBA Studio (React + Vite)           │  chat, pipeline, artifacts
 ├────────────────────────────────────────────────┤
 │         agent-server (Node/TypeScript)         │  DABBA Agents · pipeline · memory
 ├───────────────┬────────────────┬───────────────┤
-│  memory.md /  │   conectores    │  provider de  │
-│  artefatos    │  (Jira, Slack…) │  modelo (BYOK)│
+│  memory.md /  │   connectors    │  model        │
+│  artifacts    │  (Jira, Slack…) │  provider (BYOK)│
 └───────────────┴────────────────┴───────────────┘
 ```
 
-## Estrutura
+## Project structure
 
-| Diretório | Conteúdo |
+| Directory | Contents |
 |-----------|----------|
-| `agent-server/` | Motor dos DABBA Agents (discovery, prd, architect, backlog, business-case), execução via LLM (BYOK), pipeline state, memory |
-| `gui/` | DABBA Studio — interface React consumida pelo desktop-shell (e utilizável em browser durante o dev) |
-| `desktop-shell/` | Shell Tauri que empacota a GUI e supervisiona o agent-server |
-| `packaging/` | Scripts de build de instaladores (DMG, Windows) |
-| `docs/` | Specs e decisões de arquitetura |
+| `agent-server/` | DABBA Agents engine (discovery, prd, architect, backlog, business-case), LLM execution (BYOK), pipeline state, memory |
+| `gui/` | DABBA Studio — React interface consumed by desktop-shell (also usable in a plain browser during dev) |
+| `desktop-shell/` | Tauri shell that packages the GUI and supervises the agent-server |
+| `packaging/` | Installer build scripts (DMG, Windows) |
+| `docs/` | Specs and architecture decisions |
 
 ## Status
 
-- ✅ `agent-server`: registry de agentes + execução de comandos via LLM (BYOK)
-- ✅ `gui`: DABBA Studio consumindo o agent-server (lista de agentes, comandos, execução)
-- ✅ Upload de RFP/documentos: PDF, DOCX, HTML, TXT/MD → extração de texto server-side
-- ✅ Pipeline completo: Discovery → PRD → Architecture → Backlog → Business Case,
-  persistido em SQLite, com documento HTML consolidado final
-- ✅ UI/UX: ícones por agente, dark mode, timeline animada do pipeline, drag-and-drop
-- ✅ App Mac real: `agent-server` empacotado como sidecar Tauri (Node SEA),
-  sobe e morre automaticamente com o app — `.app`/`.dmg` funcionais
-- Ver histórico de decisões em `docs/decisions.md`
+- ✅ `agent-server`: agent registry + command execution via LLM (BYOK)
+- ✅ `gui`: DABBA Studio consuming the agent-server (agent list, commands, execution)
+- ✅ RFP/document upload: PDF, DOCX, HTML, TXT/MD → server-side text extraction
+- ✅ Full pipeline: Discovery → PRD → Architecture → Backlog → Business Case,
+  persisted in SQLite, with a final consolidated HTML document
+- ✅ UI/UX: per-agent icons, dark mode, animated pipeline timeline, drag-and-drop
+- ✅ Real Mac app: `agent-server` packaged as a Tauri sidecar (Node SEA),
+  starts and stops automatically with the app — `.app`/`.dmg` working
+- See the decision log in `docs/decisions.md`
 
-## App Mac (duplo-clique, sem terminal)
+---
 
-O `agent-server` roda como **sidecar** do Tauri: um binário standalone
-(Node SEA — Single Executable Application) embutido dentro do `.app`,
-que sobe e morre automaticamente junto com a janela. Não é preciso rodar
-`npm run dev:server` manualmente para usar o app instalado.
+## Installation & setup
+
+Full walkthrough, from a clean checkout to a working `.dmg`. Two paths:
+**Quick dev** (browser only, fastest to iterate) and **Full desktop app**
+(Tauri, requires Rust).
+
+### Prerequisites
+
+| Tool | Why | Check |
+|------|-----|-------|
+| Node.js 20+ | Runs the agent-server and the GUI dev server | `node --version` |
+| npm | Package manager (workspaces are npm-based) | `npm --version` |
+| Rust + Cargo | Only needed for the desktop app (Tauri + sidecar build) | `rustc --version` |
+| An LLM API key | OpenRouter (free-tier friendly) or Anthropic | — |
+
+**Installing Rust** (skip if you only want the browser dev flow):
 
 ```bash
-# 1. Gerar o sidecar (uma vez, ou sempre que o agent-server mudar)
-cd agent-server && npm run build:sidecar
-
-# 2. Empacotar o app (.app + .dmg)
-cd desktop-shell && npm run tauri -- build
+# macOS/Linux
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# then restart your shell, or:
+source "$HOME/.cargo/env"
+rustc --version   # confirms the toolchain is on PATH
 ```
 
-O `.dmg` sai em `desktop-shell/src-tauri/target/release/bundle/dmg/`.
+### 1. Clone and install dependencies
 
-Detalhes técnicos e os dois bugs reais encontrados/corrigidos ao testar o
-`.app` de verdade (não só compilar) estão em `docs/decisions.md`.
+```bash
+git clone https://github.com/juliopessan/DPABB-Framework-Desktop.git
+cd DPABB-Framework-Desktop
+npm install   # installs all workspaces (agent-server, gui, desktop-shell)
+```
 
-## Pipeline completo (upload → 5 fases → relatório consolidado)
+### 2. Configure your LLM provider (BYOK)
 
-Na seção "Pipeline completo" da GUI (ou via API), anexe uma RFP e o
-`agent-server` roda as 5 fases sequencialmente — cada uma usando o
-artefato da fase anterior como premissa/contexto, na ordem documentada no
-framework original:
+The `agent-server` calls an LLM provider to execute agent commands. Copy the
+template and fill in your key:
+
+```bash
+cp agent-server/.env.example agent-server/.env
+```
+
+**Option A — OpenRouter** (default, free-tier models with automatic fallback):
+
+```bash
+# agent-server/.env
+OPENROUTER_API_KEY=sk-or-v1-...
+# optional: override the list/order of free models tried
+# DABBA_OPENROUTER_MODELS=nvidia/nemotron-nano-9b-v2:free,openai/gpt-oss-20b:free
+```
+
+If a free model errors out, returns 429 (rate limit), or runs out of quota,
+`agent-server` automatically tries the next one in the list
+(`agent-server/src/llm/openrouter.ts`). The response includes
+`fallbackAttempts` listing which models failed before the one that
+answered — shown in the GUI.
+
+**Option B — Anthropic**:
+
+```bash
+# agent-server/.env
+DABBA_LLM_PROVIDER=anthropic
+DABBA_LLM_API_KEY=sk-ant-...
+DABBA_LLM_MODEL=claude-sonnet-5   # optional, has a default
+```
+
+Without any key configured, the execution endpoint runs in **dry-run**
+mode: it returns the prompt that would have been sent, without calling any
+API — useful to verify the wiring before spending real tokens.
+
+### 3. Quick dev (browser, no Rust needed)
+
+Fastest way to iterate on the GUI or the agent-server:
+
+```bash
+# Terminal 1 — agent-server (port 8765)
+cd agent-server && npm run dev
+
+# Terminal 2 — DABBA Studio (browser, port 1420)
+cd gui && npm run dev
+```
+
+Open `http://localhost:1420` in any browser. Attach an RFP, run the full
+pipeline or a single agent, open the consolidated report — everything works
+here except the native desktop behaviors (system tray, packaged `.dmg`,
+auto-managed backend process).
+
+### 4. Full desktop app (Tauri + sidecar)
+
+The desktop build packages `agent-server` as a **sidecar**: a standalone
+binary (Node SEA — Single Executable Application) that Tauri starts
+automatically with the app and stops automatically when it quits. No manual
+`npm run dev` for the backend once this is set up.
+
+```bash
+# 4a. Build the sidecar binary (once, or whenever agent-server changes)
+cd agent-server
+npm run build:sidecar
+```
+
+This downloads and caches an official static Node.js binary (~130MB, only
+the first time), bundles `agent-server` into it via Node SEA, and outputs
+`desktop-shell/src-tauri/binaries/agent-server-<target-triple>`.
+
+```bash
+# 4b. Run in Tauri dev mode (opens a native window, hot-reloads the GUI)
+cd desktop-shell
+npm run tauri dev
+```
+
+```bash
+# 4c. Or build the installable app (.app + .dmg)
+cd desktop-shell
+npm run tauri -- build
+```
+
+The `.dmg` lands in
+`desktop-shell/src-tauri/target/release/bundle/dmg/DABBA_<version>_aarch64.dmg`.
+Drag `DABBA.app` into `/Applications`, double-click — the sidecar starts and
+stops with the window, no terminal required.
+
+**Important:** don't run `agent-server`'s `npm run dev` while using the
+Tauri desktop app — both would fight over port 8765. Pick one path per
+session: browser dev (step 3) or desktop app (step 4).
+
+**Where the packaged app stores its data:** the sidecar can't write next to
+itself (it's a single embedded binary, and the `.app` bundle should stay
+read-only). Data lives at the OS-standard location instead:
+
+| Platform | Path |
+|----------|------|
+| macOS | `~/Library/Application Support/DABBA/` |
+| Windows | `%APPDATA%/DABBA/` |
+| Linux | `~/.dabba/` |
+
+That's where `dabba.sqlite`, the consolidated HTML reports
+(`data/output/`), and the packaged app's `.env` (API key) live. In dev mode
+(steps 1–3), `agent-server/.env` and `agent-server/data/` are used instead —
+see `agent-server/src/appPaths.ts` for the exact resolution logic.
+
+### Troubleshooting
+
+- **`rustc: command not found`** after installing Rust: restart your
+  terminal, or run `source "$HOME/.cargo/env"`.
+- **`tauri dev`/`tauri build` fails looking for a sidecar binary:** run
+  step 4a first — the binary isn't checked into git (`.gitignore`'d, ~130MB).
+- **Stuck `.dmg` bundling** (`bundle_dmg.sh` fails intermittently): a leftover
+  mounted volume from a previous attempt is usually the cause. Check
+  `hdiutil info` for any `/Volumes/dmg.*` or `rw.*.dmg` and detach/remove
+  them, then retry `tauri build`. Details in `docs/decisions.md`.
+- **Port 8765 already in use:** something else is holding it — most likely
+  a leftover `agent-server` dev process or a previous sidecar instance that
+  didn't shut down. `lsof -i :8765` to find and stop it.
+
+---
+
+## Full pipeline (upload → 5 phases → consolidated report)
+
+In the GUI's "Pipeline completo" section (or via the API), attach an RFP and
+`agent-server` runs the 5 phases sequentially — each one using the previous
+phase's artifact as its premise/context, in the order documented by the
+original framework:
 
 1. `discovery` (`*start`)
 2. `prd` (`*generate`)
 3. `architecture` (`*design`)
-4. `backlog` (`*breakdown`)
+4. `backlog` (`*breakdown` → `*estimate` → `*staffing`)
 5. `business-case` (`*analyze`)
 
-Cada artefato é salvo em `agent-server/data/dabba.sqlite` (tabelas
-`pipeline_runs` e `phase_artifacts`). Ao final, um documento HTML
-consolidado (todas as fases, conteúdo completo — não um resumo) é gerado
-em `agent-server/data/output/{runId}.html`, estilizado com a identidade
-visual da DABBA Studio, e servido em `GET /pipeline/:id/report.html`.
+Each artifact is saved to `dabba.sqlite` (`pipeline_runs` and
+`phase_artifacts` tables). At the end, a consolidated HTML document (all
+phases, full content — not a summary) is generated and served at
+`GET /pipeline/:id/report.html`, styled with the DABBA Studio visual
+identity.
 
 **API:**
-- `POST /pipeline/run { projectName, rfpText }` — dispara o pipeline em
-  background, retorna `runId` imediatamente
-- `GET /pipeline/:id` — status + artefatos (para polling)
-- `GET /pipeline/:id/report.html` — documento consolidado
+- `POST /pipeline/run { projectName, rfpText }` — kicks off the pipeline in
+  the background, returns `runId` immediately
+- `GET /pipeline/:id` — status + artifacts (for polling)
+- `GET /pipeline/:id/report.html` — the consolidated document
 
-**Upload de arquivos:** `POST /extract-text` (multipart, campo `file`)
-aceita PDF, DOCX, HTML/HTM e TXT/MD, retornando o texto extraído.
-
-## Rodando localmente
-
-```bash
-# 1. Agent server (porta 8765)
-cd agent-server && npm install && npm run dev
-
-# 2. DABBA Studio (browser, dev — porta 1420)
-cd gui && npm install && npm run dev
-```
-
-Os passos 1+2 abrem a GUI num browser comum, sem precisar do Tauri/Rust —
-mais rápido para iterar em UI e no agent-server.
-
-### Desktop app completo (Tauri + sidecar)
-
-`desktop-shell` sempre sobe o `agent-server` como sidecar automaticamente
-(mesmo em `tauri dev`) — **não** rode `npm run dev` do agent-server em
-paralelo, os dois disputariam a porta 8765. O sidecar precisa existir
-antes de `tauri dev`/`tauri build`:
-
-```bash
-cd agent-server && npm run build:sidecar   # gera o binário standalone (requer Rust/cargo)
-cd desktop-shell && npm install && npm run tauri dev
-```
-
-### Configurando um provider de modelo (BYOK)
-
-O `agent-server` executa comandos dos agentes chamando um provider LLM.
-Dois providers suportados, configuráveis via `agent-server/.env` (copie de
-`.env.example`) ou variáveis de ambiente:
-
-**OpenRouter (default, modelos free com fallback automático)**
-
-```bash
-OPENROUTER_API_KEY=sk-or-v1-...
-# opcional: sobrescreve a lista/ordem de modelos free tentados
-# DABBA_OPENROUTER_MODELS=nvidia/nemotron-nano-9b-v2:free,openai/gpt-oss-20b:free
-```
-
-Se um modelo free retornar erro, 429 (rate limit) ou quota estourada, o
-`agent-server` tenta automaticamente o próximo da lista
-(`agent-server/src/llm/openrouter.ts`). A resposta inclui `fallbackAttempts`
-com os modelos que falharam antes do que respondeu — exibido na GUI.
-
-**Anthropic (alternativa)**
-
-```bash
-DABBA_LLM_PROVIDER=anthropic
-DABBA_LLM_API_KEY=sk-ant-...
-DABBA_LLM_MODEL=claude-sonnet-5   # opcional, tem default
-```
-
-Sem nenhuma chave configurada, o endpoint de execução roda em modo
-*dry-run*: retorna o prompt que seria enviado, sem chamar nenhuma API.
+**File upload:** `POST /extract-text` (multipart, `file` field) accepts PDF,
+DOCX, HTML/HTM, and TXT/MD, returning the extracted text.

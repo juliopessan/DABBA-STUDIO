@@ -8,6 +8,7 @@ import {
   type PipelineArtifact,
 } from "../api";
 import { useFileDrop } from "../useFileDrop";
+import { openExternal } from "../openExternal";
 import ThinkingDots from "./ThinkingDots";
 import Button from "./Button";
 import PhaseTimeline from "./PhaseTimeline";
@@ -38,17 +39,28 @@ export default function PipelineRunner() {
 
   useEffect(() => {
     if (!runId || status !== "running") return;
+    // Uma falha isolada de rede (comum na webview nativa, ou um GET que
+    // chega no meio de um restart do dev server) não pode derrubar o
+    // polling pro resto da execução — o pipeline continua rodando no
+    // backend por minutos; só desiste depois de falhas consecutivas.
+    let consecutiveFailures = 0;
+    const MAX_CONSECUTIVE_FAILURES = 5;
+
     const interval = setInterval(async () => {
       try {
         const data = await getPipelineStatus(runId);
+        consecutiveFailures = 0;
         setArtifacts(data.artifacts);
         if (data.run.status !== "running") {
           setStatus(data.run.status);
           clearInterval(interval);
         }
       } catch (err) {
-        setError((err as Error).message);
-        clearInterval(interval);
+        consecutiveFailures += 1;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          setError(`Perdeu conexão com o agent-server: ${(err as Error).message}`);
+          clearInterval(interval);
+        }
       }
     }, 3000);
     return () => clearInterval(interval);
@@ -375,10 +387,8 @@ export default function PipelineRunner() {
                     transition={{ type: "spring", stiffness: 320, damping: 26, delay: 0.2 }}
                     style={{ marginTop: 18 }}
                   >
-                    <motion.a
-                      href={pipelineReportUrl(runId)}
-                      target="_blank"
-                      rel="noreferrer"
+                    <motion.button
+                      onClick={() => openExternal(pipelineReportUrl(runId))}
                       whileHover={{ y: -1.5 }}
                       whileTap={{ scale: 0.97 }}
                       style={{
@@ -387,17 +397,18 @@ export default function PipelineRunner() {
                         gap: 8,
                         padding: "11px 22px",
                         borderRadius: 999,
+                        border: "none",
                         background: "linear-gradient(135deg, var(--dabba-clay), var(--dabba-clay-dark))",
                         color: "#fff",
                         fontSize: 14,
                         fontWeight: 600,
-                        textDecoration: "none",
+                        cursor: "pointer",
                         boxShadow: "var(--dabba-shadow-sm)",
                       }}
                     >
                       <ExternalIcon />
                       Abrir documento consolidado
-                    </motion.a>
+                    </motion.button>
                     <span
                       style={{
                         marginLeft: 12,

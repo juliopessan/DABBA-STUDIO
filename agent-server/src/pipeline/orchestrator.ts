@@ -58,7 +58,7 @@ async function processPipeline(runId: string, rfpText: string): Promise<void> {
     for (const command of step.commands) {
       let result;
       try {
-        result = await runAgentCommand({ systemPrompt: agent.persona, command, input: phaseInput });
+        result = await runAgentCommand({ systemPrompt: agent.persona, command, input: phaseInput, autoMode: true });
       } catch (error) {
         updateRunStatus(runId, "failed");
         throw error;

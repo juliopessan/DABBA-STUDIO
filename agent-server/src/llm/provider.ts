@@ -4,7 +4,20 @@ export interface RunRequest {
   systemPrompt: string;
   command: string;
   input?: string;
+  // As personas foram escritas para um workflow humano-no-loop (fazem
+  // perguntas de esclarecimento, pedem confirmação antes de prosseguir).
+  // No pipeline automatizado não há humano para responder — sem este
+  // aviso, o modelo (sobretudo os free/pequenos) degenera em "conversar"
+  // sobre a fase anterior em vez de executar a sua ("Resposta: Sim,
+  // procedemos com..."), observado em teste real encadeando as 5 fases.
+  autoMode?: boolean;
 }
+
+const AUTO_MODE_PREFIX = `MODO PIPELINE AUTOMATIZADO — não há humano disponível para responder perguntas, confirmações ou pedidos de esclarecimento. Nunca pergunte, nunca peça confirmação, nunca escreva frases como "confirme se deseja..." ou "aguardando sua resposta". Execute o comando pedido e gere o artefato completo diretamente nesta resposta, adotando suposições razoáveis (e documentando-as) onde normalmente entrevistaria um humano.
+
+---
+
+`;
 
 export interface RunResult {
   mode: "live" | "dry-run";
@@ -65,15 +78,16 @@ async function runOpenRouter(apiKey: string, systemPrompt: string, userMessage: 
 
 export async function runAgentCommand(req: RunRequest): Promise<RunResult> {
   const userMessage = buildUserMessage(req.command, req.input);
+  const systemPrompt = req.autoMode ? AUTO_MODE_PREFIX + req.systemPrompt : req.systemPrompt;
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const anthropicKey = process.env.DABBA_LLM_API_KEY;
   const provider = process.env.DABBA_LLM_PROVIDER ?? (openRouterKey ? "openrouter" : anthropicKey ? "anthropic" : undefined);
 
   if (provider === "openrouter" && openRouterKey) {
-    return runOpenRouter(openRouterKey, req.systemPrompt, userMessage);
+    return runOpenRouter(openRouterKey, systemPrompt, userMessage);
   }
   if (provider === "anthropic" && anthropicKey) {
-    return runAnthropic(anthropicKey, req.systemPrompt, userMessage);
+    return runAnthropic(anthropicKey, systemPrompt, userMessage);
   }
 
   return {
@@ -81,7 +95,7 @@ export async function runAgentCommand(req: RunRequest): Promise<RunResult> {
     output: [
       "Nenhum provider LLM configurado (OPENROUTER_API_KEY ou DABBA_LLM_API_KEY) — nenhuma chamada de API foi feita.",
       "Prompt que seria enviado:",
-      `--- system ---\n${req.systemPrompt}`,
+      `--- system ---\n${systemPrompt}`,
       `--- user ---\n${userMessage}`,
     ].join("\n\n"),
   };
