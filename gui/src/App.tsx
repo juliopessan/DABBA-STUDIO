@@ -14,9 +14,38 @@ export default function App() {
   const { theme, toggle } = useTheme();
 
   useEffect(() => {
-    fetchAgents()
-      .then(setAgents)
-      .catch((err) => setError(`Falha ao conectar ao agent-server: ${err.message}`));
+    // No app empacotado, a janela abre antes do sidecar (binário Node)
+    // terminar de subir — a primeira tentativa pode chegar antes da porta
+    // estar de pé (mais ainda na primeira execução, com o Gatekeeper
+    // verificando a assinatura). Sem retry, uma corrida de inicialização
+    // vira um erro permanente mesmo com o backend saudável segundos depois.
+    let cancelled = false;
+    let attempt = 0;
+    const MAX_ATTEMPTS = 20;
+    const RETRY_DELAY_MS = 1000;
+
+    async function tryFetch() {
+      attempt += 1;
+      try {
+        const data = await fetchAgents();
+        if (!cancelled) {
+          setAgents(data);
+          setError(null);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        if (attempt >= MAX_ATTEMPTS) {
+          setError(`Falha ao conectar ao agent-server: ${(err as Error).message}`);
+          return;
+        }
+        setTimeout(tryFetch, RETRY_DELAY_MS);
+      }
+    }
+
+    tryFetch();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const agent = agents.find((a) => a.id === selectedId) ?? null;

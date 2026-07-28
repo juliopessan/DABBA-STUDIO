@@ -500,3 +500,71 @@ querer as perguntas de elicitação).
 vez do TOGAF ADM; com `autoMode`, saiu `# architecture.md` com as fases A-E
 de verdade. Backlog saiu com Epics reais em vez de "Resposta: Sim,
 gerarei o arquivo...". Mesmo padrão corrigido nas 5 fases.
+
+## 2026-07-28 — Instalação real do usuário: dois bugs sérios reportados
+
+Usuário testou a instalação do zero e reportou dois problemas reais,
+investigados e corrigidos.
+
+### Corrida de inicialização: "Falha ao conectar ao agent-server: Load failed"
+
+O app abriu normalmente, mas a GUI mostrou esse erro no final. Causa:
+`App.tsx` fazia **uma única tentativa** de `fetchAgents()` no mount, sem
+retry. No app empacotado, a janela do Tauri renderiza antes do sidecar
+(binário Node de ~145MB) terminar de subir — especialmente na primeira
+execução, quando o Gatekeeper ainda está verificando a assinatura. Se o
+primeiro fetch chega antes da porta 8765 estar de pé, o erro fica
+permanente mesmo com o backend saudável segundos depois.
+
+**Fix:** `useEffect` em `App.tsx` agora tenta até 20 vezes, a cada 1s
+(20s de margem), só mostrando o erro definitivo se todas as tentativas
+falharem. Cobre tanto a corrida de boot quanto qualquer hiccup transitório
+de rede depois.
+
+### Bug mais sério: processo `agent-server` travado a ~98-100% de CPU indefinidamente
+
+Usuário reportou um processo do DABBA consumindo CPU sem parar. **Reproduzi
+de verdade**: rodando o app diretamente de dentro do volume `.dmg` montado
+(sem instalar em Applications primeiro — cenário muito comum, já que o
+usuário só tinha "duplo-clicado" sem arrastar pro Applications antes),
+encontrei um processo `agent-server` de um teste anterior meu preso a
+94-100% de CPU **por mais de 25 minutos seguidos**, com conexões TCP
+abertas mas nunca respondendo.
+
+**Investigação:** tentei `sample`/`spindump` para capturar um stack trace
+do processo travado, mas ambos exigem root interativo, indisponível neste
+ambiente. Via `lsof -p <pid>` encontrei duas pistas: (1) o `cwd` do
+processo travado apontava para `/` (raiz do filesystem) em vez de um
+diretório esperado, e (2) o processo tinha arquivos gráficos Metal
+(`.metallib`) abertos — bizarro para um processo Express/SQLite headless.
+Isso, somado ao padrão de "múltiplas tentativas de abrir o app" relatado
+pelo usuário (que reportou "duplo-clique não funcionou" mais de uma vez),
+apontou para a hipótese mais provável: **múltiplas instâncias do sidecar
+rodando ao mesmo tempo**, disputando o mesmo arquivo SQLite
+(`~/Library/Application Support/DABBA/data/dabba.sqlite`, compartilhado
+entre todas as instâncias independente de onde cada uma rode) — uma
+delas presa endeça em retry de lock de arquivo.
+
+**Fix — duas camadas de defesa, ambas em `lib.rs`:**
+1. `tauri-plugin-single-instance`: registrado como o primeiro plugin (é
+   requisito da própria lib). Uma segunda tentativa de abrir o app agora
+   só foca a janela já existente, nunca spawna um segundo sidecar.
+2. `current_dir()` explícito no builder do sidecar (usando o home do
+   usuário via crate `dirs`), em vez de herdar o cwd do processo pai —
+   que pode ser imprevisível (`/`) dependendo de como o app foi aberto.
+
+**Validado:** abri o app 3 vezes em sequência rápida — só uma instância
+de `dabba` e uma de `agent-server` subiram (confirmando o single-instance
+funcionando). Rodei um pipeline completo de 5 fases monitorando CPU a
+cada 20s durante toda a execução: nunca passou de 0.4%, terminou com
+sucesso, CPU final 1.3%. Fechei via `osascript quit` de novo — ambos os
+processos morreram juntos, porta liberada. Nenhuma reincidência do
+travamento nesses testes controlados.
+
+**Limitação da investigação:** não consegui confirmar a causa raiz exata
+via stack trace (sem acesso a root para profiling neste ambiente) — a
+correção é uma mitigação de defesa em profundidade baseada nas evidências
+disponíveis (múltiplas instâncias + cwd suspeito), não uma correção
+cirúrgica confirmada linha a linha. Se o usuário reportar o mesmo travamento
+de novo mesmo com o app instalado corretamente em Applications e só uma
+instância aberta, será preciso investigar mais a fundo com acesso a root.

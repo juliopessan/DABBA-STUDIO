@@ -304,6 +304,30 @@ see `agent-server/src/appPaths.ts` for the exact resolution logic.
 - **Port 8765 already in use:** something else is holding it — most likely
   a leftover `agent-server` dev process or a previous sidecar instance that
   didn't shut down. `lsof -i :8765` to find and stop it.
+- **App opened after copying `DABBA.app` straight from the mounted `.dmg`
+  window (without dragging it to Applications first):** don't. Drag
+  `DABBA.app` into the `Applications` shortcut shown in the `.dmg` window,
+  eject the volume, then launch from `/Applications`. Running it directly
+  from the mounted (read-only) volume is unsupported and was the trigger
+  for a real runaway-CPU bug found in the wild — fixed via
+  `tauri-plugin-single-instance` (a second launch attempt now just
+  focuses the existing window instead of spawning a second sidecar) plus
+  an explicit working directory for the sidecar process, but installing
+  properly remains the recommended path.
+- **"Failed to connect to agent-server: Load failed" right after opening
+  the app:** the GUI window can render before the sidecar finishes
+  starting (especially on first launch, while Gatekeeper verifies the
+  signature). The GUI retries the connection automatically for ~20s
+  before giving up — if you still see this after 20+ seconds, something
+  is actually wrong; check `Console.app` for `[agent-server]` log lines
+  from the DABBA process.
+- **First launch blocked by Gatekeeper** ("Apple could not verify..." or
+  the app silently does nothing): right-click `DABBA.app` → **Open** →
+  confirm **Open** in the dialog (bypasses Gatekeeper with a one-time
+  confirmation). If that doesn't show any dialog at all, macOS may have
+  flagged it as damaged instead — run
+  `xattr -cr /Applications/DABBA.app` to clear the quarantine attribute,
+  then open normally.
 
 ---
 
