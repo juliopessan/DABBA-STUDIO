@@ -4,8 +4,8 @@ interface Props {
   size?: number;
 }
 
-// Check desenhado com pathLength — o traço "se escreve" quando a fase
-// conclui, em vez de aparecer de uma vez.
+// Check drawn with pathLength — the stroke "writes itself" as the phase
+// completes, instead of popping in all at once.
 export default function CheckMark({ size = 18 }: Props) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">

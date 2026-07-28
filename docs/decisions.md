@@ -652,3 +652,50 @@ visíveis, numeradas, com a fase corrente em acento). Vale registrar que o
 painel de preview do navegador roda com `document.hidden = true`, o que
 congela transições CSS e animações do framer-motion em `currentTime: 0` —
 dois "bugs" investigados eram artefato disso, confirmado antes de descartar.
+
+---
+
+## Anel de progresso nas fases, rótulo em gerúndio, EN-US e ordem de pipeline
+
+Quatro mudanças de interface pedidas em conjunto.
+
+**1. Anel preenchendo o ícone da fase (`PhaseNode.tsx`).** Cada nó da timeline
+virou um SVG com dois círculos concêntricos: trilho neutro e anel de progresso
+com `stroke-dasharray`/`stroke-dashoffset`. O disco interno também tinge
+devagar (terracota rodando, verde concluído).
+
+A duração real de uma fase depende do modelo e do tamanho da RFP — não existe
+progresso verdadeiro para mostrar. Em vez de fingir precisão, o anel avança até
+**92%** com easing desacelerado e só fecha o círculo quando o artefato chega de
+fato. Comunica "em andamento" sem prometer um tempo que não sabemos.
+
+**2. Rótulo de execução em gerúndio (`RunningLabel.tsx`).** Uma palavra por vez,
+no espírito do spinner do Claude Code, agrupadas por fase (Excavating/
+Prospecting no Discovery, Drafting/Distilling no PRD, Blueprinting no
+Architecture…). Como o pipeline já sabe onde está, a palavra acompanha o
+trabalho real em vez de sortear.
+
+A primeira versão usava `AnimatePresence mode="wait"`, e **travava**: a palavra
+nova só monta quando a saída da anterior termina, e essa animação depende de
+rAF — suspenso com a janela em segundo plano. Trocado por remontagem via `key`
+sem gate de opacidade, o mesmo padrão que o resto da UI já adota.
+
+**3. Projeto em EN-US.** Todas as strings de interface e todos os comentários
+de `gui/src` traduzidos (verificado com grep por diacríticos: zero ocorrências).
+O `agent-server` — comentários e, principalmente, as personas dos agentes —
+segue em português e é a próxima etapa; as personas são conteúdo que dirige a
+saída do LLM, então traduzi-las muda o produto, não só o código.
+
+**4. Ordem de pipeline em vez de alfabética (`phases.ts`).** O agent-server
+devolve os agentes em ordem alfabética (architect, backlog, business-case,
+discovery, prd), que não tem relação com a ordem em que o trabalho acontece —
+e a numeração dos cards ficava mentindo. A ordem canônica agora vive em um
+único módulo, consumido pela timeline e pelo grid.
+
+**Validação (na janela real do app, não no preview):** o painel de preview roda
+com `document.hidden = true`, que suspende rAF e congela tanto o anel quanto a
+rotação das palavras — por isso a verificação foi feita no app empacotado.
+Observado ao vivo: Discovery com anel laranja parcial e rótulo "Sleuthing…",
+depois Discovery com anel verde fechado + check e PRD com anel laranja parcial
+e rótulo "Drafting…" — confirmando o preenchimento, o fechamento na conclusão e
+a troca de pool de palavras junto com a fase.

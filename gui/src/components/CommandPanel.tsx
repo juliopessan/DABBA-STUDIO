@@ -72,8 +72,8 @@ export default function CommandPanel({ agent }: Props) {
   return (
     <motion.section
       key={agent.id}
-      // Entrada só por transform (nunca fica invisível se o rAF congelar);
-      // a saída mantém o fade, que o AnimatePresence precisa para a troca
+      // Transform-only entrance (never invisible if rAF freezes); the exit
+      // keeps its fade, which AnimatePresence needs for the swap
       // suave entre agentes.
       initial={{ y: 14 }}
       animate={{ y: 0, opacity: 1 }}
@@ -155,8 +155,8 @@ export default function CommandPanel({ agent }: Props) {
                   }}
                 />
               )}
-              {/* Acima do indicador: z-index negativo o mandaria para trás do
-                  card inteiro, escondendo a pill. */}
+              {/* Above the indicator: a negative z-index would push it behind
+                  the whole card, hiding the pill. */}
               <span style={{ position: "relative", zIndex: 1 }}>{c}</span>
             </motion.button>
           );
@@ -168,7 +168,7 @@ export default function CommandPanel({ agent }: Props) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           rows={4}
-          placeholder="Contexto para o comando (opcional) — ou arraste um arquivo"
+          placeholder="Context for the command (optional) — or drop a file"
           style={{
             width: "100%",
             resize: "vertical",
@@ -231,7 +231,7 @@ export default function CommandPanel({ agent }: Props) {
           title="Anexar PDF, DOCX, HTML ou TXT/MD"
         >
           {uploading ? <ThinkingDots size={5} /> : <UploadIcon />}
-          {uploading ? "Lendo arquivo…" : "Anexar arquivo"}
+          {uploading ? "Reading file…" : "Attach file"}
         </Button>
 
         <AnimatePresence mode="wait">
@@ -281,7 +281,7 @@ export default function CommandPanel({ agent }: Props) {
       <div style={{ marginTop: 18 }}>
         <Button onClick={handleRun} disabled={loading}>
           {loading ? <ThinkingDots color="#fff" size={5} /> : <PlayIcon />}
-          {loading ? "Executando…" : "Executar"}
+          {loading ? "Running…" : "Run"}
         </Button>
       </div>
 
@@ -369,7 +369,7 @@ export default function CommandPanel({ agent }: Props) {
                   transition: "color 0.2s var(--dabba-ease)",
                 }}
               >
-                {copied ? "copiado ✓" : "copiar"}
+                {copied ? "copied ✓" : "copy"}
               </button>
             </div>
 

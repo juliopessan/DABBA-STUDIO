@@ -35,9 +35,9 @@ export default function Button({
         gap: 8,
         padding: primary ? "15px 26px" : "8px 14px",
         borderRadius: "var(--dabba-radius-sm)",
-        // Desabilitado precisa de contorno próprio: no tema editorial o
-        // fundo "muted" é o mesmo do painel que hospeda o botão, então sem
-        // borda o controle simplesmente some da tela.
+        // Disabled needs an outline of its own: in the editorial theme the
+        // "muted" background is the same as the panel hosting the button, so
+        // without a border the control simply vanishes.
         border: disabled
           ? "1px solid var(--dabba-border)"
           : primary
@@ -56,8 +56,8 @@ export default function Button({
         transition: "background 0.25s var(--dabba-ease), color 0.25s var(--dabba-ease)",
       }}
     >
-      {/* Brilho que atravessa o botão no hover — puro CSS via motion,
-          sem imagem nem dependência externa. */}
+      {/* Sheen sweeping across the button on hover — pure CSS via motion,
+          no image and no external dependency. */}
       {!disabled && primary && (
         <motion.span
           aria-hidden

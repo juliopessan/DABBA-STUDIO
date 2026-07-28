@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import type { AgentSummary } from "../api";
+import { byPipelineOrder } from "../phases";
 import { AgentIcon } from "./icons";
 
 const container = {
@@ -7,10 +8,10 @@ const container = {
   show: { transition: { staggerChildren: 0.07, delayChildren: 0.05 } },
 };
 
-// Entrada só por transform (sem opacidade): se o requestAnimationFrame for
-// suspenso — janela minimizada, aba em segundo plano — a animação congela
-// onde estiver. Sem gate de opacidade o pior caso é o card levemente
-// deslocado, nunca invisível.
+// Transform-only entrance (no opacity): if requestAnimationFrame is
+// suspended — minimised window, backgrounded tab — the animation freezes
+// wherever it is. With no opacity gate the worst case is a slightly
+// offset card, never an invisible one.
 const item = {
   hidden: { y: 14, scale: 0.97 },
   show: {
@@ -27,6 +28,10 @@ interface Props {
 }
 
 export default function AgentGrid({ agents, selectedId, onSelect }: Props) {
+  // The server lists agents alphabetically; show them in the order the
+  // pipeline actually runs them so the numbering means something.
+  const ordered = byPipelineOrder(agents);
+
   return (
     <motion.div
       variants={container}
@@ -38,7 +43,7 @@ export default function AgentGrid({ agents, selectedId, onSelect }: Props) {
         gap: 12,
       }}
     >
-      {agents.map((a, i) => {
+      {ordered.map((a, i) => {
         const active = a.id === selectedId;
         const num = String(i + 1).padStart(2, "0");
         return (
@@ -46,7 +51,7 @@ export default function AgentGrid({ agents, selectedId, onSelect }: Props) {
             key={a.id}
             variants={item}
             onClick={() => onSelect(a.id)}
-            aria-label={`${a.name} (@${a.id}), ${a.commands.length} comandos`}
+            aria-label={`${a.name} (@${a.id}), ${a.commands.length} commands`}
             aria-pressed={active}
             whileHover="hover"
             whileTap={{ scale: 0.975 }}
@@ -62,8 +67,8 @@ export default function AgentGrid({ agents, selectedId, onSelect }: Props) {
               transition: "background 0.3s var(--dabba-ease), border-color 0.3s var(--dabba-ease)",
             }}
           >
-            {/* Anel de seleção compartilhado: desliza entre os cards em vez
-                de piscar, deixando óbvio de onde para onde a seleção foi. */}
+            {/* Shared selection ring: it slides between cards instead of
+                blinking, making the move from one to the next obvious. */}
             {active && (
               <motion.span
                 layoutId="agent-selection-ring"
@@ -115,7 +120,7 @@ export default function AgentGrid({ agents, selectedId, onSelect }: Props) {
               className="dabba-eyebrow"
               style={{ marginTop: 14, fontSize: 10 }}
             >
-              {a.commands.length} comandos
+              {a.commands.length} commands
             </div>
           </motion.button>
         );

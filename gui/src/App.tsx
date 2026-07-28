@@ -14,11 +14,11 @@ export default function App() {
   const { theme, toggle } = useTheme();
 
   useEffect(() => {
-    // No app empacotado, a janela abre antes do sidecar (binário Node)
-    // terminar de subir — a primeira tentativa pode chegar antes da porta
-    // estar de pé (mais ainda na primeira execução, com o Gatekeeper
-    // verificando a assinatura). Sem retry, uma corrida de inicialização
-    // vira um erro permanente mesmo com o backend saudável segundos depois.
+    // In the packaged app the window opens before the sidecar (a Node
+    // binary) finishes booting — the first attempt can land before the port
+    // is up (more so on first launch, while Gatekeeper verifies the
+    // signature). Without a retry, a startup race becomes a permanent error
+    // even though the backend is healthy seconds later.
     let cancelled = false;
     let attempt = 0;
     const MAX_ATTEMPTS = 20;
@@ -35,7 +35,7 @@ export default function App() {
       } catch (err) {
         if (cancelled) return;
         if (attempt >= MAX_ATTEMPTS) {
-          setError(`Falha ao conectar ao agent-server: ${(err as Error).message}`);
+          setError(`Could not reach the agent-server: ${(err as Error).message}`);
           return;
         }
         setTimeout(tryFetch, RETRY_DELAY_MS);
@@ -90,8 +90,8 @@ export default function App() {
               maxWidth: 480,
             }}
           >
-            Discovery, Architecture, Backlog and Business Analysis — cinco fases encadeadas
-            que transformam uma RFP em um documento rastreável.
+            Discovery, Architecture, Backlog and Business Analysis — five chained phases
+            that turn an RFP into a traceable document.
           </p>
         </div>
 
@@ -102,7 +102,7 @@ export default function App() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}
-                title="agent-server conectado"
+                title="agent-server connected"
                 className="dabba-eyebrow"
                 style={{ display: "inline-flex", alignItems: "center", gap: 7 }}
               >
@@ -117,7 +117,7 @@ export default function App() {
                     display: "inline-block",
                   }}
                 />
-                {agents.length} agentes
+                {agents.length} agents
               </motion.span>
             )}
           </AnimatePresence>
@@ -126,7 +126,7 @@ export default function App() {
             onClick={toggle}
             whileHover={{ y: -1.5 }}
             whileTap={{ scale: 0.92, rotate: -20 }}
-            title={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
+            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
             style={{
               display: "grid",
               placeItems: "center",
@@ -182,12 +182,12 @@ export default function App() {
       <PipelineRunner />
 
       <div style={{ marginTop: 56, paddingTop: 28, borderTop: "1px solid var(--dabba-border)" }}>
-        <div className="dabba-eyebrow">02 / Agentes individuais</div>
+        <div className="dabba-eyebrow">02 / Individual agents</div>
         <h2 className="dabba-display" style={{ fontSize: 30, margin: "12px 0 10px" }}>
-          Uma fase por vez.
+          One phase at a time.
         </h2>
         <p style={{ color: "var(--dabba-ink-soft)", fontSize: 14, margin: "0 0 22px", maxWidth: 460 }}>
-          Execute um comando isolado, sem rodar o pipeline inteiro.
+          Run a single command without kicking off the whole pipeline.
         </p>
       </div>
 

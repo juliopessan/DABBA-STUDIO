@@ -12,6 +12,7 @@ import { openExternal } from "../openExternal";
 import ThinkingDots from "./ThinkingDots";
 import Button from "./Button";
 import PhaseTimeline from "./PhaseTimeline";
+import RunningLabel from "./RunningLabel";
 import { AlertIcon, ExternalIcon, FileIcon, PlayIcon, UploadIcon } from "./icons";
 
 const TOTAL_PHASES = 5;
@@ -39,10 +40,10 @@ export default function PipelineRunner() {
 
   useEffect(() => {
     if (!runId || status !== "running") return;
-    // Uma falha isolada de rede (comum na webview nativa, ou um GET que
-    // chega no meio de um restart do dev server) não pode derrubar o
-    // polling pro resto da execução — o pipeline continua rodando no
-    // backend por minutos; só desiste depois de falhas consecutivas.
+    // A one-off network failure (common in the native webview, or a GET
+    // landing mid dev-server restart) must not kill polling for the rest of
+    // the run — the pipeline keeps going on the backend for minutes; only
+    // give up after several consecutive failures.
     let consecutiveFailures = 0;
     const MAX_CONSECUTIVE_FAILURES = 5;
 
@@ -58,7 +59,7 @@ export default function PipelineRunner() {
       } catch (err) {
         consecutiveFailures += 1;
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          setError(`Perdeu conexão com o agent-server: ${(err as Error).message}`);
+          setError(`Lost connection to the agent-server: ${(err as Error).message}`);
           clearInterval(interval);
         }
       }
@@ -103,7 +104,7 @@ export default function PipelineRunner() {
     setArtifacts([]);
     setElapsed(0);
     try {
-      const { runId } = await startPipeline(projectName || "Projeto sem nome", rfpText);
+      const { runId } = await startPipeline(projectName || "Untitled project", rfpText);
       setRunId(runId);
       setStatus("running");
     } catch (err) {
@@ -117,10 +118,10 @@ export default function PipelineRunner() {
 
   return (
     <motion.section
-      // Entrada só por transform: se o rAF for suspenso (janela minimizada,
-      // aba em segundo plano) a animação pode congelar no meio — sem gate de
-      // opacidade, o pior caso é o card alguns pixels deslocado, nunca
-      // invisível. Fades ficam só na UI efêmera abaixo.
+      // Transform-only entrance: if rAF is suspended (minimised window,
+      // backgrounded tab) the animation can freeze midway — with no opacity
+      // gate the worst case is a card a few pixels off, never invisible.
+      // Fades are reserved for the ephemeral UI below.
       initial={{ y: 16 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
@@ -133,7 +134,7 @@ export default function PipelineRunner() {
         overflow: "hidden",
       }}
     >
-      {/* Barra de progresso no topo do card, visível durante a execução */}
+      {/* Progress bar pinned to the top of the card while a run is active */}
       <AnimatePresence>
         {(busy || status === "done") && (
           <motion.div
@@ -153,13 +154,13 @@ export default function PipelineRunner() {
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
         <div>
-          <div className="dabba-eyebrow">01 / Pipeline completo</div>
+          <div className="dabba-eyebrow">01 / Full pipeline</div>
           <h2 className="dabba-display" style={{ fontSize: 30, margin: "12px 0 10px" }}>
-            A RFP percorre a cadeia.
+            The RFP travels the chain.
           </h2>
           <p style={{ color: "var(--dabba-ink-soft)", fontSize: 14, margin: 0, maxWidth: 560, lineHeight: 1.6 }}>
-            Anexe a RFP e rode as 5 fases de ponta a ponta. Cada fase usa o artefato da anterior como
-            premissa; tudo fica salvo em SQLite.
+            Attach the RFP and run all 5 phases end to end. Each phase uses the previous
+            artifact as its premise; everything is stored in SQLite.
           </p>
         </div>
 
@@ -195,7 +196,7 @@ export default function PipelineRunner() {
           type="text"
           value={projectName}
           onChange={(e) => setProjectName(e.target.value)}
-          placeholder="Nome do projeto"
+          placeholder="Project name"
           disabled={busy}
           style={{
             width: "100%",
@@ -208,13 +209,13 @@ export default function PipelineRunner() {
           }}
         />
 
-        {/* Área de texto que também aceita arquivo arrastado */}
+        {/* Textarea that doubles as a drop target */}
         <div style={{ position: "relative" }} {...dropHandlers}>
           <textarea
             value={rfpText}
             onChange={(e) => setRfpText(e.target.value)}
             rows={5}
-            placeholder="Cole a RFP aqui, ou arraste um arquivo (PDF, DOCX, HTML, TXT/MD)"
+            placeholder="Paste the RFP here, or drop a file (PDF, DOCX, HTML, TXT/MD)"
             disabled={busy}
             style={{
               width: "100%",
@@ -257,7 +258,7 @@ export default function PipelineRunner() {
                   style={{ display: "grid", placeItems: "center", gap: 6 }}
                 >
                   <UploadIcon size={24} />
-                  Solte o arquivo para extrair o texto
+                  Drop the file to extract its text
                 </motion.div>
               </motion.div>
             )}
@@ -275,7 +276,7 @@ export default function PipelineRunner() {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
           <Button variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={uploading || busy}>
             {uploading ? <ThinkingDots size={5} /> : <UploadIcon />}
-            {uploading ? "Lendo arquivo…" : "Anexar RFP"}
+            {uploading ? "Reading file…" : "Attach RFP"}
           </Button>
 
           <AnimatePresence mode="wait">
@@ -324,8 +325,8 @@ export default function PipelineRunner() {
 
         <div style={{ marginTop: 18 }}>
           <Button onClick={handleStart} disabled={!canStart}>
-            {busy ? <ThinkingDots color="#fff" size={5} /> : <PlayIcon />}
-            {busy ? "Executando pipeline…" : "Iniciar Pipeline"}
+            {busy ? <ThinkingDots color="var(--dabba-bg)" size={5} /> : <PlayIcon />}
+            {busy ? <RunningLabel phaseIndex={artifacts.length} /> : "Start pipeline"}
           </Button>
         </div>
       </div>
@@ -395,7 +396,7 @@ export default function PipelineRunner() {
                       }}
                     >
                       <ExternalIcon />
-                      Abrir documento consolidado
+                      Open consolidated document
                     </motion.button>
                     <span
                       style={{
@@ -404,7 +405,7 @@ export default function PipelineRunner() {
                         color: "var(--dabba-ink-faint)",
                       }}
                     >
-                      concluído em {formatElapsed(elapsed)}
+                      completed in {formatElapsed(elapsed)}
                     </span>
                   </motion.div>
                 )}
@@ -423,7 +424,7 @@ export default function PipelineRunner() {
                     }}
                   >
                     <AlertIcon />
-                    Pipeline falhou. Verifique os logs do agent-server.
+                    Pipeline failed. Check the agent-server logs.
                   </motion.p>
                 )}
               </AnimatePresence>

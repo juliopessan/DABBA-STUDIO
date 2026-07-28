@@ -1,13 +1,13 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap");
 
 :root {
-  /* Declara explicitamente o esquema de cores: sem isso, webviews e
-     navegadores com "forced dark mode" aplicam o escurecimento
-     automático deles por cima da paleta, quebrando o tema claro. */
+  /* Declare the colour scheme explicitly: without it, webviews and
+     browsers running "forced dark mode" layer their own darkening on top
+     of the palette and break the light theme. */
   color-scheme: light;
 
-  /* Paleta amostrada do comp de referência do DABBA Studio (editorial:
-     papel quente, tinta quase preta, um único acento terracota). */
+  /* Palette sampled from the DABBA Studio reference comp (editorial:
+     warm paper, near-black ink, a single terracotta accent). */
   --dabba-bg: #f2efe8;
   --dabba-bg-deep: #e5e1d8;
   --dabba-surface: #f2efe8;
@@ -23,8 +23,8 @@
   --dabba-sage: #5c8a5e;
   --dabba-sage-tint: #e2ebe0;
 
-  /* Superfícies planas: o sistema separa por régua e contraste de fundo,
-     não por elevação — sombra aqui só sujaria a leitura tipográfica. */
+  /* Flat surfaces: the system separates by rule and background contrast,
+     not elevation — a shadow here would only muddy the typography. */
   --dabba-shadow-sm: none;
   --dabba-shadow: none;
   --dabba-shadow-lg: none;
@@ -85,9 +85,9 @@ body {
   z-index: 1;
 }
 
-/* Rótulo mono em caixa alta — o "eyebrow" do sistema editorial. Usado em
-   seções, campos e status para criar a segunda voz tipográfica ao lado
-   do display grotesco. */
+/* Uppercase mono label — the editorial system's "eyebrow". Used on
+   sections, fields and status to give a second typographic voice
+   alongside the grotesk display. */
 .dabba-eyebrow {
   font-family: var(--dabba-font-mono);
   font-size: 10.5px;
@@ -96,8 +96,8 @@ body {
   color: var(--dabba-ink-faint);
 }
 
-/* Display grotesco compacto: o comp usa tracking negativo forte em
-   tamanhos grandes — sem isso o título perde a densidade característica. */
+/* Tight grotesk display: the comp uses strong negative tracking at large
+   sizes — without it the headline loses its characteristic density. */
 .dabba-display {
   font-family: var(--dabba-font-display);
   font-weight: 700;

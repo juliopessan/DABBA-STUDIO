@@ -18,9 +18,9 @@ const stroke = (w: number) => ({
   strokeLinejoin: "round" as const,
 });
 
-/* ── Ícones por agente ──────────────────────────────────────────────── */
+/* ── Per-agent icons ────────────────────────────────────────────────── */
 
-// @discovery — bússola: exploração, descoberta de terreno desconhecido
+// @discovery — compass: exploration, charting unknown ground
 export function DiscoveryIcon({ size = 22, strokeWidth = 1.6 }: IconProps) {
   return (
     <svg {...base(size)}>
@@ -30,7 +30,7 @@ export function DiscoveryIcon({ size = 22, strokeWidth = 1.6 }: IconProps) {
   );
 }
 
-// @prd — documento com requisitos listados
+// @prd — document with listed requirements
 export function PrdIcon({ size = 22, strokeWidth = 1.6 }: IconProps) {
   return (
     <svg {...base(size)}>
@@ -41,7 +41,7 @@ export function PrdIcon({ size = 22, strokeWidth = 1.6 }: IconProps) {
   );
 }
 
-// @architect — camadas empilhadas: arquitetura em níveis
+// @architect — stacked layers: architecture in tiers
 export function ArchitectIcon({ size = 22, strokeWidth = 1.6 }: IconProps) {
   return (
     <svg {...base(size)}>
@@ -52,7 +52,7 @@ export function ArchitectIcon({ size = 22, strokeWidth = 1.6 }: IconProps) {
   );
 }
 
-// @backlog — colunas kanban
+// @backlog — kanban columns
 export function BacklogIcon({ size = 22, strokeWidth = 1.6 }: IconProps) {
   return (
     <svg {...base(size)}>
@@ -63,7 +63,7 @@ export function BacklogIcon({ size = 22, strokeWidth = 1.6 }: IconProps) {
   );
 }
 
-// @business-case — gráfico de barras com tendência de alta
+// @business-case — bar chart trending upward
 export function BusinessCaseIcon({ size = 22, strokeWidth = 1.6 }: IconProps) {
   return (
     <svg {...base(size)}>
@@ -87,7 +87,7 @@ export function AgentIcon({ id, size = 22, strokeWidth = 1.6 }: IconProps & { id
   return <Icon size={size} strokeWidth={strokeWidth} />;
 }
 
-/* ── Ícones de UI ───────────────────────────────────────────────────── */
+/* ── UI icons ───────────────────────────────────────────────────────── */
 
 export function UploadIcon({ size = 16, strokeWidth = 1.8 }: IconProps) {
   return (

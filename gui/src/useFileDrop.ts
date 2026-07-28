@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 
-// Arrastar-e-soltar arquivo sobre a área de texto. dragDepth evita o
-// flicker clássico: dragleave dispara ao passar sobre filhos, então só
-// desligamos o destaque quando o contador zera de verdade.
+// File drag-and-drop over the textarea. dragDepth avoids the classic
+// flicker: dragleave fires when crossing child elements, so the highlight
+// only turns off once the counter genuinely reaches zero.
 export function useFileDrop(onFile: (file: File) => void) {
   const [dragging, setDragging] = useState(false);
   const depth = useRef(0);
