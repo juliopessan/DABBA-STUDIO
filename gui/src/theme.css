@@ -1,20 +1,64 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
+  /* Declara explicitamente o esquema de cores: sem isso, webviews e
+     navegadores com "forced dark mode" aplicam o escurecimento
+     automático deles por cima da paleta, quebrando o tema claro. */
+  color-scheme: light;
+
   --dabba-bg: #f5f4ed;
+  --dabba-bg-deep: #eeece2;
   --dabba-surface: #ffffff;
   --dabba-surface-muted: #ebe9e0;
   --dabba-border: #e3e1d7;
+  --dabba-border-strong: #d6d3c6;
   --dabba-ink: #1f1e1d;
   --dabba-ink-soft: #6b6a63;
+  --dabba-ink-faint: #9b998f;
   --dabba-clay: #d97757;
   --dabba-clay-dark: #bd5d3f;
   --dabba-clay-tint: #fbeae2;
   --dabba-sage: #7a8b6f;
+  --dabba-sage-tint: #eaefe6;
+
+  --dabba-shadow-sm: 0 1px 2px rgba(31, 30, 29, 0.05);
   --dabba-shadow: 0 1px 2px rgba(31, 30, 29, 0.04), 0 8px 24px rgba(31, 30, 29, 0.06);
+  --dabba-shadow-lg: 0 2px 4px rgba(31, 30, 29, 0.04), 0 16px 40px rgba(31, 30, 29, 0.1);
+  --dabba-glow: 0 0 0 4px rgba(217, 119, 87, 0.14);
+  --dabba-ambient: rgba(217, 119, 87, 0.13);
+
   --dabba-radius: 16px;
+  --dabba-radius-sm: 10px;
   --dabba-font-display: "Fraunces", Georgia, serif;
   --dabba-font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --dabba-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  --dabba-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --dabba-bg: #1a1917;
+  --dabba-bg-deep: #131211;
+  --dabba-surface: #232120;
+  --dabba-surface-muted: #2d2b28;
+  --dabba-border: #35322e;
+  --dabba-border-strong: #45413b;
+  --dabba-ink: #f2f0ea;
+  --dabba-ink-soft: #a5a29a;
+  --dabba-ink-faint: #75726b;
+  --dabba-clay: #e08b6d;
+  --dabba-clay-dark: #f0a98f;
+  --dabba-clay-tint: #3a2a23;
+  --dabba-sage: #93a487;
+  --dabba-sage-tint: #262c22;
+
+  --dabba-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --dabba-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.32);
+  --dabba-shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.45);
+  --dabba-glow: 0 0 0 4px rgba(224, 139, 109, 0.18);
+  --dabba-ambient: rgba(224, 139, 109, 0.1);
 }
 
 * {
@@ -33,4 +77,90 @@ body {
   color: var(--dabba-ink);
   font-family: var(--dabba-font-body);
   -webkit-font-smoothing: antialiased;
+  transition: background 0.4s var(--dabba-ease), color 0.4s var(--dabba-ease);
+}
+
+/* Gradiente ambiente sutil no topo — dá profundidade sem competir com o
+   conteúdo. Absoluto (não fixed) para evitar artefatos de composição na
+   webview do Tauri quando a página rola. */
+body::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 420px;
+  pointer-events: none;
+  background: radial-gradient(ellipse 900px 380px at 50% -120px, var(--dabba-ambient), transparent 70%);
+  z-index: 0;
+}
+
+body {
+  position: relative;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+input,
+textarea,
+button {
+  font-family: inherit;
+  color: inherit;
+}
+
+input,
+textarea {
+  transition: border-color 0.18s var(--dabba-ease), box-shadow 0.18s var(--dabba-ease),
+    background 0.3s var(--dabba-ease);
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--dabba-clay);
+  box-shadow: var(--dabba-glow);
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--dabba-clay);
+  outline-offset: 2px;
+}
+
+::placeholder {
+  color: var(--dabba-ink-faint);
+}
+
+::selection {
+  background: var(--dabba-clay-tint);
+  color: var(--dabba-ink);
+}
+
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--dabba-border-strong);
+  border-radius: 999px;
+  border: 3px solid var(--dabba-bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dabba-ink-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

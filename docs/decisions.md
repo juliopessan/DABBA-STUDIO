@@ -204,3 +204,60 @@
   listas aninhadas (critérios de aceitação Given/Quando/Then dentro de
   cada story do Backlog) com marcadores diferentes por nível; listas
   numeradas dos "Próximos Passos" como `<ol>` de verdade.
+
+## 2026-07-28 — Refinamento de UI/UX: ícones, animações e dark mode
+
+- **Sistema de ícones próprio** (`gui/src/components/icons.tsx`): SVG inline,
+  zero dependência externa (importante porque o app roda numa webview
+  Tauri sem CDN). Um ícone por agente, escolhido pela metáfora do papel:
+  bússola (@discovery), documento com linhas (@prd), camadas empilhadas
+  (@architect), colunas kanban (@backlog), gráfico de barras
+  (@business-case) — dá reconhecimento visual instantâneo no grid e na
+  timeline. Mais ícones de UI (upload, arquivo, play, link externo,
+  alerta, sol/lua).
+- **Dark mode** (`useTheme.ts` + `data-theme` no `<html>`): paleta escura
+  quente derivada da clara, persistida em `localStorage`, com fallback
+  para `prefers-color-scheme`.
+- **Bug real encontrado e corrigido — `color-scheme` ausente:** sem a
+  declaração, webviews/navegadores com *forced dark mode* aplicavam o
+  escurecimento automático deles POR CIMA da paleta clara, quebrando o
+  tema. Diagnosticado ao ver `data-theme="light"` no DOM mas a página
+  renderizando escura. Corrigido declarando `color-scheme: light|dark`
+  por tema — relevante para o app Tauri em máquinas com OS escuro.
+- **Robustez de animação (decisão de arquitetura):** durante o teste,
+  descobri que o conteúdo principal ficava em `opacity: 0.017` — travado
+  no meio da animação de entrada — quando o `requestAnimationFrame` era
+  suspenso (janela/aba em segundo plano). Num app desktop isso significa
+  minimizar e restaurar podendo revelar uma tela em branco. **Regra
+  adotada:** entradas de conteúdo principal (header, card do pipeline,
+  cards de agente, painel de comando) animam **apenas transform**, nunca
+  opacidade — se a animação congelar, o pior caso é alguns pixels de
+  deslocamento, jamais conteúdo invisível. Fades ficam restritos a UI
+  efêmera/condicional (resultados, erros, badges, saída do
+  `AnimatePresence`), onde congelar é inofensivo. Verificado: com o
+  painel oculto e rAF suspenso, `opacity` permaneceu 1 e o transform
+  congelou a 0.14px do destino.
+- **Micro-interações com Framer Motion:**
+  - `layoutId` compartilhado no anel de seleção do agente e na pill de
+    comando ativa — o indicador desliza entre os alvos em vez de piscar,
+    deixando óbvio de onde para onde a seleção foi.
+  - `PhaseTimeline`: trilho vertical cujo preenchimento cresce por fase,
+    nó ativo com pulso irradiando, checkmark desenhado via `pathLength`
+    quando a fase conclui, e o modelo usado aparecendo embaixo.
+  - Progresso do pipeline em % + cronômetro no cabeçalho do card.
+  - Botão primário com gradiente e brilho que atravessa no hover
+    (via `variants` — `whileHover` no pai só propaga para filhos que
+    declaram variants).
+- **Drag-and-drop de arquivo** (`useFileDrop.ts`) nas duas áreas de
+  texto, com overlay tracejado; o contador de profundidade evita o
+  flicker clássico de `dragleave` ao passar sobre elementos filhos.
+- **Acessibilidade:** `aria-label` + `aria-pressed` nos cards de agente
+  (a árvore de acessibilidade os mostrava sem nome), `:focus-visible`
+  com anel próprio, e `prefers-reduced-motion` desligando as animações.
+- **Bug de empilhamento corrigido:** a pill de comando ativa usava
+  `zIndex: -1`, que a jogava para trás do card inteiro em vez de para
+  trás do texto — o fundo gradiente ficava invisível. Corrigido elevando
+  o rótulo com um `<span>` relativo.
+- Validado no browser: tema claro e escuro, seleção de agente, pill
+  deslizante, upload com chip do arquivo, e um pipeline real do início
+  ao fim mostrando a timeline avançando fase a fase.
