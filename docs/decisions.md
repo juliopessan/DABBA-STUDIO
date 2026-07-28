@@ -56,3 +56,22 @@
   do crate/lib `dabba`/`dabba_lib`. Validado com `cargo check` e `tauri dev`
   de ponta a ponta — o binário nativo abriu e serviu a GUI a partir do Vite
   dev server.
+
+## 2026-07-28 — UI/UX inspirada na Anthropic + Framer Motion
+
+- **Paleta:** oat/cream de fundo (`#f5f4ed`), terracota como cor de destaque
+  (`#d97757`), tinta escura para texto — inspirado na identidade visual da
+  Anthropic/Claude, sem reutilizar assets proprietários.
+- **Tipografia:** serif (Fraunces, via Google Fonts) para títulos/nomes de
+  agente + sans-serif (Inter) para o resto — combinação editorial parecida
+  com a usada pela Anthropic, sem copiar a fonte proprietária deles
+  (Styrene/Tiempos).
+- **Framer Motion:** grid de agentes com stagger de entrada, seleção com
+  destaque terracota, painel de comando com fade/slide ao trocar de agente
+  (`AnimatePresence mode="wait"`), pills de comando com transição suave,
+  botão "Executar" com estado de loading (`ThinkingDots` — 3 pontos
+  pulsando, referência direta à animação de "pensando" do Claude).
+- Componentizado em `gui/src/components/{AgentGrid,CommandPanel,
+  ThinkingDots}.tsx` — `App.tsx` ficou só orquestrando estado.
+- Validado visualmente no browser: entrada com stagger, seleção de agente,
+  troca de comando, execução em dry-run com badge de modo.

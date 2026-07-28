@@ -1,0 +1,36 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  --dabba-bg: #f5f4ed;
+  --dabba-surface: #ffffff;
+  --dabba-surface-muted: #ebe9e0;
+  --dabba-border: #e3e1d7;
+  --dabba-ink: #1f1e1d;
+  --dabba-ink-soft: #6b6a63;
+  --dabba-clay: #d97757;
+  --dabba-clay-dark: #bd5d3f;
+  --dabba-clay-tint: #fbeae2;
+  --dabba-sage: #7a8b6f;
+  --dabba-shadow: 0 1px 2px rgba(31, 30, 29, 0.04), 0 8px 24px rgba(31, 30, 29, 0.06);
+  --dabba-radius: 16px;
+  --dabba-font-display: "Fraunces", Georgia, serif;
+  --dabba-font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--dabba-bg);
+  color: var(--dabba-ink);
+  font-family: var(--dabba-font-body);
+  -webkit-font-smoothing: antialiased;
+}
