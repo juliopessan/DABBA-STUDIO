@@ -1,5 +1,7 @@
 # DABBA
 
+![DABBA Studio — requirements in, decisions out](docs/assets/dabba-studio.png)
+
 **DABBA** — *Discovery, Architecture, Backlog and Business Analysis* — is the
 commercial identity of the **DPABB** agentic framework (technical internal
 name, preserved in the code, packages, and architecture documentation).

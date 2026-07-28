@@ -568,3 +568,44 @@ disponíveis (múltiplas instâncias + cwd suspeito), não uma correção
 cirúrgica confirmada linha a linha. Se o usuário reportar o mesmo travamento
 de novo mesmo com o app instalado corretamente em Applications e só uma
 instância aberta, será preciso investigar mais a fundo com acesso a root.
+
+---
+
+## Pipeline em dry-run mesmo com a chave configurada (regressão do fix de cwd)
+
+**Sintoma:** o usuário reportou que o pipeline não rodava, atribuindo à chave
+da OpenRouter. A chave estava correta e válida (confirmado batendo em
+`/api/v1/key`, HTTP 200, e rodando completions em 4 dos 5 modelos free da
+lista), e o arquivo `~/Library/Application Support/DABBA/.env` existia com
+ela. Ainda assim o app empacotado respondia `mode: "dry-run"` — "Nenhum
+provider LLM configurado".
+
+**Causa raiz — autoinfligida pelo fix anterior.** O `current_dir()` que
+adicionei em `lib.rs` (mitigação do travamento de CPU) passou a rodar o
+sidecar com cwd no home do usuário. O `index.ts` carrega, nesta ordem:
+
+```ts
+if (existsSync(".env")) dotenv.config({ path: ".env" }); // relativo ao cwd
+dotenv.config({ path: ENV_FILE });                        // config do usuário
+```
+
+O home do usuário tem um `~/.env` (do AIOS) contendo `OPENROUTER_API_KEY=`
+**vazio**. Como `dotenv` nunca sobrescreve variável já definida, a chave era
+fixada como string vazia na primeira chamada e o `.env` real do DABBA virava
+no-op. String vazia é falsy no `provider.ts` → dry-run silencioso.
+
+**Fix:** o `.env` relativo ao cwd só é lido fora do binário empacotado
+(`!isSea()`, de `node:sea`). Empacotado, apenas o arquivo de config do
+usuário vale — o cwd é de quem abriu o app e não é uma fonte confiável.
+
+**Validado:** rodei o sidecar recém-buildado com `cwd=$HOME` (a condição
+exata que quebrava, com o `~/.env` de chave vazia presente) → `mode: "live"`.
+Confirmei que o dev não regrediu (`tsx src/index.ts` no diretório do
+agent-server → `mode: "live"`). Instalei o build em `/Applications` e rodei
+um pipeline completo pela API do app: 5/5 fases com conteúdo real via
+OpenRouter, CPU do sidecar entre 0.6% e 3.2% durante toda a execução.
+
+**Lição:** mudar o cwd de um processo é uma mudança de ambiente, não só de
+caminho — qualquer leitura relativa (aqui, `dotenv`) muda de significado
+junto. A ordem "carrega genérico primeiro, específico depois" só é segura
+quando a fonte genérica é confiável.

@@ -3,6 +3,7 @@ import express from "express";
 import multer from "multer";
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+import { isSea } from "node:sea";
 import { initAgents, listAgents, getAgent } from "./agents/registry.js";
 import { runAgentCommand } from "./llm/provider.js";
 import { extractText, isSupportedExtension } from "./upload/extractText.js";
@@ -13,9 +14,13 @@ import { ENV_FILE } from "./appPaths.js";
 // Em dev, o `.env` vive ao lado do source (agent-server/.env) — tentado
 // primeiro para não quebrar o fluxo de desenvolvimento existente.
 // Empacotado como sidecar Tauri não há "ao lado do executável" gravável;
-// as chaves do usuário ficam em ~/Library/Application Support/DABBA/.env
-// (dotenv.config não sobrescreve vars já setadas pela primeira chamada).
-if (existsSync(".env")) dotenv.config({ path: ".env" });
+// as chaves do usuário ficam em ~/Library/Application Support/DABBA/.env.
+//
+// O `.env` relativo ao cwd só é lido em dev: empacotado, o cwd é o de quem
+// abriu o app e pode conter um `.env` de outro projeto. Como dotenv nunca
+// sobrescreve var já definida, um `OPENROUTER_API_KEY=` vazio herdado desse
+// arquivo silenciava a chave real do usuário e o app caía em dry-run.
+if (!isSea() && existsSync(".env")) dotenv.config({ path: ".env" });
 dotenv.config({ path: ENV_FILE });
 
 const app = express();
