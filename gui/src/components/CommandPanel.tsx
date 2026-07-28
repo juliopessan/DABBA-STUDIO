@@ -149,8 +149,15 @@ export default function CommandPanel({ agent }: Props) {
                 marginBottom: 8,
               }}
             >
-              {result.mode}{result.model ? ` · ${result.model}` : ""}
+              {result.mode}{result.provider ? ` · ${result.provider}` : ""}{result.model ? ` · ${result.model}` : ""}
             </span>
+
+            {!!result.fallbackAttempts?.length && (
+              <p style={{ fontSize: 12, color: "var(--dabba-ink-soft)", margin: "0 0 8px" }}>
+                Fallback: {result.fallbackAttempts.map((a) => `${a.model} (${a.status})`).join(" → ")} → {result.model} ✓
+              </p>
+            )}
+
             <pre
               style={{
                 whiteSpace: "pre-wrap",

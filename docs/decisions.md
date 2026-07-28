@@ -75,3 +75,28 @@
   ThinkingDots}.tsx` — `App.tsx` ficou só orquestrando estado.
 - Validado visualmente no browser: entrada com stagger, seleção de agente,
   troca de comando, execução em dry-run com badge de modo.
+
+## 2026-07-28 — Integração OpenRouter com fallback de modelos free
+
+- **Provider abstrato:** `agent-server/src/llm/provider.ts` agora escolhe
+  entre `openrouter` e `anthropic` via `DABBA_LLM_PROVIDER` (default:
+  openrouter se `OPENROUTER_API_KEY` presente, senão anthropic se
+  `DABBA_LLM_API_KEY` presente, senão dry-run).
+- **`agent-server/src/llm/openrouter.ts`:** lista de 8 modelos free
+  (nvidia/nemotron, openai/gpt-oss-20b, google/gemma-4, etc.), tentados em
+  ordem. Em erro retryable (429, 402, 404, 408, 5xx) tenta o próximo
+  modelo automaticamente; erros não-retryable propagam imediatamente.
+  Lista sobrescrevível via `DABBA_OPENROUTER_MODELS`.
+- **Testado com chamadas reais** (não só dry-run): confirmado que
+  `google/gemma-4-31b-it:free` retorna 429 no momento (rate-limited
+  upstream) e que o fallback avança corretamente para
+  `nvidia/nemotron-nano-9b-v2:free`, que responde. Testado também via GUI
+  ponta a ponta — o agente `@discovery` (Scout) respondeu de verdade
+  seguindo sua persona.
+- **GUI:** `RunResult` ganhou `provider` e `fallbackAttempts`; o badge de
+  resultado mostra `live · openrouter · <modelo>` e, quando houve
+  fallback, uma linha listando os modelos que falharam antes do que
+  respondeu.
+- **Segredos:** chave da OpenRouter fica em `agent-server/.env` (git-
+  ignorado, nunca commitado). `.env.example` documenta as variáveis sem
+  valores reais.

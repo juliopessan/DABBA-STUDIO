@@ -8,8 +8,10 @@ export interface AgentSummary {
 
 export interface RunResult {
   mode: "live" | "dry-run";
+  provider?: "anthropic" | "openrouter";
   model?: string;
   output: string;
+  fallbackAttempts?: { model: string; status: number }[];
 }
 
 export async function fetchAgents(): Promise<AgentSummary[]> {

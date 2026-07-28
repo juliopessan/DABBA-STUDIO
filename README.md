@@ -71,14 +71,30 @@ cd desktop-shell && npm install && npm run tauri dev
 
 ### Configurando um provider de modelo (BYOK)
 
-O `agent-server` executa comandos dos agentes chamando um provider LLM
-compatível com a API de mensagens da Anthropic. Configure via variáveis de
-ambiente antes de `npm run dev`:
+O `agent-server` executa comandos dos agentes chamando um provider LLM.
+Dois providers suportados, configuráveis via `agent-server/.env` (copie de
+`.env.example`) ou variáveis de ambiente:
+
+**OpenRouter (default, modelos free com fallback automático)**
 
 ```bash
-export DABBA_LLM_API_KEY=sk-ant-...
-export DABBA_LLM_MODEL=claude-sonnet-5   # opcional, tem default
+OPENROUTER_API_KEY=sk-or-v1-...
+# opcional: sobrescreve a lista/ordem de modelos free tentados
+# DABBA_OPENROUTER_MODELS=nvidia/nemotron-nano-9b-v2:free,openai/gpt-oss-20b:free
 ```
 
-Sem `DABBA_LLM_API_KEY` configurada, o endpoint de execução roda em modo
+Se um modelo free retornar erro, 429 (rate limit) ou quota estourada, o
+`agent-server` tenta automaticamente o próximo da lista
+(`agent-server/src/llm/openrouter.ts`). A resposta inclui `fallbackAttempts`
+com os modelos que falharam antes do que respondeu — exibido na GUI.
+
+**Anthropic (alternativa)**
+
+```bash
+DABBA_LLM_PROVIDER=anthropic
+DABBA_LLM_API_KEY=sk-ant-...
+DABBA_LLM_MODEL=claude-sonnet-5   # opcional, tem default
+```
+
+Sem nenhuma chave configurada, o endpoint de execução roda em modo
 *dry-run*: retorna o prompt que seria enviado, sem chamar nenhuma API.

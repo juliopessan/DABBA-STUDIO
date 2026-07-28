@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { listAgents, getAgent } from "./agents/registry.js";
 import { runAgentCommand } from "./llm/provider.js";
