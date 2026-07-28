@@ -1,0 +1,15 @@
+{
+  "name": "dpabb-framework-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop app (agent-server + GUI + Tauri shell) for the DPABB-Framework requirements pipeline",
+  "workspaces": [
+    "agent-server",
+    "gui"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace=agent-server",
+    "dev:gui": "npm run dev --workspace=gui"
+  },
+  "license": "MIT"
+}

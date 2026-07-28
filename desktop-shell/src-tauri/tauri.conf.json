@@ -1,0 +1,18 @@
+{
+  "productName": "DPABB Framework Desktop",
+  "version": "0.1.0",
+  "identifier": "com.dpabb.frameworkdesktop",
+  "build": {
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../../gui/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "DPABB Framework Desktop",
+        "width": 1200,
+        "height": 800
+      }
+    ]
+  }
+}
