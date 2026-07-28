@@ -280,7 +280,10 @@ export default function CommandPanel({ agent }: Props) {
 
       <div style={{ marginTop: 18 }}>
         <Button onClick={handleRun} disabled={loading}>
-          {loading ? <ThinkingDots color="#fff" size={5} /> : <PlayIcon />}
+          {/* Same reason as the pipeline button: the running state is
+              disabled and therefore transparent, so white dots disappear on
+              the light theme. */}
+          {loading ? <ThinkingDots size={5} /> : <PlayIcon />}
           {loading ? "Running…" : "Run"}
         </Button>
       </div>

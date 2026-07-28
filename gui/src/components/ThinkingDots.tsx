@@ -11,7 +11,9 @@ export default function ThinkingDots({ color = "var(--dabba-clay)", size = 6 }: 
       {[0, 0.15, 0.3].map((delay, i) => (
         <motion.span
           key={i}
-          animate={{ opacity: [0.25, 1, 0.25], y: [0, -3, 0] }}
+          // Floor at 0.45, not 0.25: lower than this the accent reads as
+          // washed-out grey at the bottom of the pulse instead of orange.
+          animate={{ opacity: [0.45, 1, 0.45], y: [0, -3, 0] }}
           transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut", delay }}
           style={{
             width: size,

@@ -325,7 +325,10 @@ export default function PipelineRunner() {
 
         <div style={{ marginTop: 18 }}>
           <Button onClick={handleStart} disabled={!canStart}>
-            {busy ? <ThinkingDots color="var(--dabba-bg)" size={5} /> : <PlayIcon />}
+            {/* Accent, not the page background: while busy the button is
+                disabled, so its surface is transparent — background-coloured
+                dots vanish into it in both themes. */}
+            {busy ? <ThinkingDots size={5} /> : <PlayIcon />}
             {busy ? <RunningLabel phaseIndex={artifacts.length} /> : "Start pipeline"}
           </Button>
         </div>
