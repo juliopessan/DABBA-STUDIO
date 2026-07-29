@@ -18,26 +18,33 @@ function inline(text: string): string {
 // ("Let me know if you want changes…") after. Without this the parser would
 // treat the entire document as literal code.
 //
-// Only unwrap when there is EXACTLY one fence pair in the whole document (the
-// entire response = 1 block). Documents with several legitimate code blocks
-// (e.g. multiple ```mermaid diagrams in the architecture phase) have more
-// than 2 markers — there each fence must be handled individually by the
-// parser, not discarded as if it were a single wrapper (doing so breaks the
-// pairing of every inner fence).
+// Detected by POSITION, not by counting fence markers: if the first
+// non-blank line of the document opens a fence and the last non-blank line
+// closes one, that pair is the outer wrapper — strip only those two boundary
+// lines and keep everything between them untouched, including any fences
+// nested inside (e.g. multiple ```mermaid diagrams in the architecture
+// phase, or a Mermaid graph inside a wrapped backlog). An earlier version
+// required exactly one fence pair in the whole document, which meant any
+// response with legitimate inner fences never unwrapped at all — the
+// architect and backlog outputs (which always contain Mermaid blocks) were
+// rendering as one giant unstyled code block end to end. None of these
+// personas legitimately start a document with a code fence as its first
+// line, so "first line opens, last line closes" is a safe signal without
+// needing to inspect what's in between.
 export function unwrapOuterCodeFence(markdown: string): string {
-  const fenceLine = /^\s*```[a-z]*\s*$/im;
   const lines = markdown.split("\n");
-  const fenceIndexes = lines.reduce<number[]>((acc, line, i) => {
-    if (fenceLine.test(line)) acc.push(i);
-    return acc;
-  }, []);
 
-  if (fenceIndexes.length !== 2) return markdown;
+  let start = 0;
+  while (start < lines.length && lines[start].trim() === "") start++;
+  let end = lines.length - 1;
+  while (end >= 0 && lines[end].trim() === "") end--;
 
-  const [first, last] = fenceIndexes;
-  const inner = lines.slice(first + 1, last).join("\n");
+  if (start >= end) return markdown;
+  if (!/^```[a-z]*\s*$/i.test(lines[start].trim())) return markdown;
+  if (!/^```\s*$/.test(lines[end].trim())) return markdown;
 
-  return inner.length > markdown.length * 0.5 ? inner : markdown;
+  const inner = lines.slice(start + 1, end).join("\n").trim();
+  return inner.length > 0 ? inner : markdown;
 }
 
 const UNORDERED_ITEM = /^(\s*)[-*]\s+(.*)$/;

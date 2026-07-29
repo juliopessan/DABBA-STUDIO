@@ -796,3 +796,58 @@ renomear fisicamente as pastas (`personas/`, `templates/`) porque
 tocar build tooling e reduziria a rastreabilidade das mudanças. A nomenclatura
 conceitual está registrada aqui como referência; uma reestruturação física
 real, se desejada, deve ser um passo separado e deliberado.
+
+---
+
+## Bug real no desembrulho de fence — Architecture e Backlog viravam bloco de código único
+
+**Sintoma reportado:** o `report.html` "desconfigurado" nas fases Architecture e
+Backlog — texto corrido sem formatação, diagramas Mermaid como texto solto,
+tabelas quebradas.
+
+**Causa raiz confirmada com dados reais** (extraídos direto do SQLite do run
+que o usuário reportou): o modelo envolve a resposta inteira num
+`\`\`\`markdown ... \`\`\`` externo, mas Architecture e Backlog também têm
+diagramas Mermaid legítimos dentro (`\`\`\`mermaid`), então o documento tem
+**múltiplos pares de fence**, não um só. O `unwrapOuterCodeFence` antigo só
+desembrulhava quando havia **exatamente 1 par** de fences no documento inteiro
+— com mais pares (6 para Architecture, 3 para Backlog neste run), ele desistia
+e o parser tratava o `\`\`\`markdown` externo como código literal, virando
+`<pre><code>` do início ao fim: cabeçalhos, negrito, listas e os próprios
+diagramas Mermaid, tudo como texto pré-formatado sem estrutura nenhuma.
+
+Discovery (@discovery) e PRD/Business-case não tinham esse wrapper externo
+neste run, por isso pareciam normais — mascarando que o bug só aparecia
+quando a fase tinha diagramas Mermaid *e* vinha embrulhada.
+
+**Correção:** `unwrapOuterCodeFence` (`agent-server/src/pipeline/markdown.ts`)
+passou a detectar o wrapper **pela posição**, não pela contagem: se a primeira
+linha não-vazia do documento abre um fence e a última fecha um, esse par é o
+wrapper externo — remove só essas duas linhas de borda e preserva tudo entre
+elas intacto, incluindo qualquer fence aninhado. Nenhuma das personas começa
+um documento com um fence como primeira linha genuína, então esse sinal é
+seguro sem precisar inspecionar o conteúdo do meio.
+
+**Validação:** reconstruí o HTML das 5 fases do run real reportado
+(`b9745a98-...`) com o parser corrigido. Architecture foi de 0 headings (tudo
+em um `<pre>` só) para 9 headings reais + 5 blocos `<pre>` de Mermaid
+corretamente isolados; Backlog foi de "documento inteiro em bloco de código"
+para headings reais e 3 blocos de código isolados, zero crase solta escapando
+para o texto. Regenerei o `report.html` desse run específico e conferi
+visualmente no navegador: títulos em negrito, listas com marcadores, Mermaid
+em blocos de código legíveis.
+
+**O que não foi corrigido, e por quê — problema real, mas de conteúdo do
+modelo, não de template:**
+- **Discovery** retornou apenas `"@discovery *generate"` (23 caracteres) —
+  o modelo (`nvidia/nemotron-nano-9b-v2:free`) essencialmente não executou o
+  comando `*start`, só ecoou uma referência de comando. Nenhum ajuste de
+  parser resolve isso; é o modelo gratuito falhando em seguir a persona.
+- **Business Case** repetiu o bloco "Executive Summary" duas vezes e o
+  Backlog repetiu a tabela "Staffing Plan" duas vezes — o modelo reintroduziu
+  conteúdo já dado numa etapa anterior do encadeamento de comandos, apesar da
+  persona instruir explicitamente "produces **only** that section". Confirma
+  a suspeita do usuário: com modelos free pequenos, esse tipo de repetição é
+  uma limitação real do modelo, não um bug de código — registrado aqui, não
+  corrigido, porque não há ajuste de parser que resolva um modelo repetindo
+  conteúdo por conta própria.
