@@ -3,10 +3,10 @@ const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 // Preference order: generalist, more stable models first.
 // Overridable via DABBA_OPENROUTER_MODELS (comma-separated list).
 export const DEFAULT_FREE_MODELS = [
+  "google/gemma-4-31b-it:free",
   "nvidia/nemotron-nano-9b-v2:free",
   "openai/gpt-oss-20b:free",
   "nvidia/nemotron-3-nano-30b-a3b:free",
-  "google/gemma-4-31b-it:free",
   "google/gemma-4-26b-a4b-it:free",
   "nvidia/nemotron-3-super-120b-a12b:free",
   "inclusionai/ling-3.0-flash:free",

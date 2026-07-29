@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DABBA — Requirements in. Decisions out.</title>
+<meta name="description" content="A local-first agentic workspace for turning RFPs into traceable decisions." />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='224' fill='%23F2EFE8'/%3E%3Crect x='216' y='216' width='272' height='272' rx='28' fill='%2311110F'/%3E%3Crect x='536' y='216' width='272' height='272' rx='28' fill='%23ED6738'/%3E%3Crect x='216' y='536' width='272' height='272' rx='28' fill='%23ED6738'/%3E%3Crect x='536' y='536' width='272' height='272' rx='28' fill='%2311110F'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f2efe8;
+    --panel: #e5e1d8;
+    --border: #d3cfc5;
+    --ink: #11110f;
+    --ink-soft: #5c5952;
+    --ink-faint: #aaa69c;
+    --clay: #ed6738;
+    --clay-dark: #c8481c;
+    --clay-tint: #f7ddd1;
+    --sage: #5c8a5e;
+    --display: "Helvetica Neue", "Inter Tight", Helvetica, Arial, sans-serif;
+    --body: "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 32px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .display {
+    font-family: var(--display);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 0.95;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 24px;
+    border-radius: 2px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid var(--border);
+  }
+  .btn-primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn-ghost { background: transparent; color: var(--ink); }
+  .btn[disabled], .btn.disabled { opacity: 0.45; pointer-events: none; }
+
+  /* ---------- Header ---------- */
+  header.site {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(242,239,232,0.92);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-row { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+  .wordmark { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -0.02em; text-decoration: none; }
+  .mark { display: grid; grid-template-columns: repeat(2,9px); grid-template-rows: repeat(2,9px); gap: 2px; }
+  .mark span:nth-child(1), .mark span:nth-child(4) { background: var(--ink); }
+  .mark span:nth-child(2), .mark span:nth-child(3) { background: var(--clay); }
+  nav.links { display: flex; align-items: center; gap: 32px; font-size: 14px; color: var(--ink-soft); }
+  nav.links a { text-decoration: none; }
+  nav.links a:hover { color: var(--ink); }
+  .gh-link { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+  @media (max-width: 720px) { nav.links .hide-mobile { display: none; } }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 96px 0 72px; }
+  .hero h1 { font-size: clamp(40px, 6vw, 68px); margin: 18px 0 0; }
+  .hero h1 .accent { color: var(--clay); }
+  .hero p.lede { max-width: 640px; color: var(--ink-soft); font-size: 17px; line-height: 1.65; margin: 24px 0 32px; }
+  .hero-cta { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 44px; }
+  .tag-strip {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-faint); padding-top: 24px; border-top: 1px solid var(--border);
+  }
+
+  /* ---------- Pipeline diagram ---------- */
+  .pipeline-panel {
+    background: var(--panel); border-radius: 3px; padding: 32px; margin-top: 48px;
+    display: flex; flex-direction: column; gap: 24px;
+  }
+  .pipeline-top { display: flex; align-items: center; justify-content: space-between; }
+  .live-dot { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .live-dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--sage); animation: pulse 2.4s infinite ease-in-out; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .pipeline-grid { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 16px; align-items: stretch; }
+  @media (max-width: 860px) { .pipeline-grid { grid-template-columns: 1fr; } }
+  .io-card { background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 20px; display: flex; flex-direction: column; justify-content: center; }
+  .io-card .eyebrow { color: var(--clay); margin-bottom: 8px; }
+  .io-card .big { font-family: var(--display); font-weight: 700; font-size: 22px; }
+  .io-card .small { color: var(--ink-soft); font-size: 12px; margin-top: 6px; }
+  .phase-list { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+  .phase-row { display: flex; align-items: center; gap: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 10px 14px; }
+  .phase-row .num { font-family: var(--mono); font-size: 11px; color: var(--clay); width: 20px; flex-shrink: 0; }
+  .phase-row .name { font-family: var(--display); font-weight: 700; font-size: 15px; }
+  .phase-row .who { color: var(--ink-soft); font-size: 12px; margin-left: auto; }
+  .pipeline-caption { font-size: 13px; color: var(--ink-soft); }
+  .pipeline-caption strong { color: var(--ink); }
+
+  .marquee { overflow: hidden; white-space: nowrap; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 14px 0; margin-top: 48px; }
+  .marquee-track { display: inline-block; font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); animation: scroll 22s linear infinite; }
+  @keyframes scroll { to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .marquee-track { animation: none; } }
+
+  /* ---------- Sections ---------- */
+  section { padding: 96px 0; }
+  section.split { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 64px; align-items: start; }
+  @media (max-width: 860px) { section.split { grid-template-columns: 1fr; gap: 32px; } }
+  section h2.display { font-size: clamp(30px, 4vw, 44px); margin: 14px 0 0; }
+  .quote { border-left: 2px solid var(--clay); padding-left: 18px; margin-top: 28px; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
+  .quote strong { color: var(--ink); font-weight: 600; }
+  .body-copy { color: var(--ink-soft); font-size: 15.5px; line-height: 1.75; }
+  .body-copy + .body-copy { margin-top: 16px; }
+
+  .stats-band { background: var(--ink); color: var(--bg); border-radius: 3px; padding: 48px 40px; display: grid; grid-template-columns: repeat(3,1fr); gap: 32px; }
+  @media (max-width: 720px) { .stats-band { grid-template-columns: 1fr; } }
+  .stat .num { font-family: var(--display); font-weight: 700; color: var(--clay); font-size: 44px; letter-spacing: -0.02em; }
+  .stat .label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: rgba(242,239,232,.6); margin-top: 6px; }
+  .stats-footnote { display: flex; align-items: center; gap: 10px; margin-top: 20px; font-size: 12.5px; color: var(--ink-soft); }
+  .stats-footnote .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sage); }
+
+  .layers { display: flex; flex-direction: column; }
+  .layer-row { display: flex; align-items: baseline; gap: 20px; padding: 22px 0; border-top: 1px solid var(--border); }
+  .layer-row:last-child { border-bottom: 1px solid var(--border); }
+  .layer-row .num { font-family: var(--mono); color: var(--clay); font-size: 12px; width: 20px; flex-shrink: 0; }
+  .layer-row .title { font-family: var(--display); font-weight: 700; font-size: 18px; min-width: 220px; }
+  .layer-row .desc { color: var(--ink-soft); font-size: 13.5px; flex: 1; }
+  .layer-row .tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
+
+  /* ---------- Download gate ---------- */
+  .download-panel { background: var(--panel); border-radius: 3px; padding: 40px; margin-top: 20px; }
+  .download-panel .eyebrow { color: var(--clay); margin-bottom: 12px; }
+  .download-panel h3 { font-family: var(--display); font-weight: 700; font-size: 24px; margin: 0 0 10px; letter-spacing: -0.02em; }
+  .download-panel p { color: var(--ink-soft); font-size: 14px; line-height: 1.6; margin: 0 0 20px; max-width: 480px; }
+  .download-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .download-note { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+
+  /* ---------- Closing CTA ---------- */
+  .cta-band { text-align: center; padding: 80px 0 64px; }
+  .cta-band .eyebrow { display: block; margin-bottom: 18px; }
+  .cta-band h2 { font-size: clamp(34px, 6vw, 56px); }
+
+  footer.site { border-top: 1px solid var(--border); padding: 28px 0; display: flex; align-items: center; justify-content: space-between; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<header class="site" id="top">
+  <div class="wrap nav-row">
+    <a class="wordmark" href="#top">
+      <span class="mark"><span></span><span></span><span></span><span></span></span>
+      DABBA
+    </a>
+    <nav class="links">
+      <a class="hide-mobile" href="#system">System</a>
+      <a class="hide-mobile" href="#proof">Proof</a>
+      <a class="hide-mobile" href="#architecture">Architecture</a>
+      <a class="gh-link" href="https://github.com/juliopessan/DPABB-Framework-Desktop" target="_blank" rel="noopener">View GitHub ↗</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <div class="eyebrow">DABBA STUDIO</div>
+    <h1 class="display">Requirements in.<br><span class="accent">Decisions out.</span></h1>
+    <p class="lede">A local-first agentic workspace that turns an RFP into discovery, a PRD, an architecture, a backlog and a business case — then ships the whole analysis as one traceable document.</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#system">Explore the system ↗</a>
+      <a class="btn btn-ghost" href="#proof">See the proof ↓</a>
+    </div>
+
+    <div class="pipeline-panel" id="system">
+      <div class="pipeline-top">
+        <span class="eyebrow" style="margin:0">Five chained agents · persisted state · byok</span>
+        <span class="live-dot">Live pipeline</span>
+      </div>
+      <div class="pipeline-grid">
+        <div class="io-card">
+          <span class="eyebrow">Input</span>
+          <span class="big">RFP</span>
+          <span class="small">PDF · DOCX · MD</span>
+        </div>
+        <div class="phase-list">
+          <div class="phase-row"><span class="num">01</span><span class="name">Discovery</span><span class="who">Natasha</span></div>
+          <div class="phase-row"><span class="num">02</span><span class="name">PRD</span><span class="who">Vision</span></div>
+          <div class="phase-row"><span class="num">03</span><span class="name">Architecture</span><span class="who">Tony</span></div>
+          <div class="phase-row"><span class="num">04</span><span class="name">Backlog</span><span class="who">Steve</span></div>
+          <div class="phase-row"><span class="num">05</span><span class="name">Business case</span><span class="who">Pepper</span></div>
+        </div>
+        <div class="io-card">
+          <span class="eyebrow">Output</span>
+          <span class="big">One document</span>
+          <span class="small">HTML report + SQLite trace</span>
+        </div>
+      </div>
+      <p class="pipeline-caption">The input travels the chain. <strong>The context never gets dropped.</strong></p>
+    </div>
+
+    <div class="marquee" aria-hidden="true">
+      <span class="marquee-track">LOCAL-FIRST ✳ TRACEABLE ✳ FIVE PHASES ✳ FREE-MODEL FRIENDLY ✳ BYOK ✳ LOCAL-FIRST ✳ TRACEABLE ✳ FIVE PHASES ✳ FREE-MODEL FRIENDLY ✳ BYOK ✳&nbsp;</span>
+    </div>
+  </section>
+
+  <section class="split wrap">
+    <div>
+      <div class="eyebrow">01 / The shift</div>
+      <h2 class="display">Make the method<br>repeatable.</h2>
+    </div>
+    <div>
+      <p class="body-copy">The method already worked. Five specialists, each with a clear scope, producing artifacts in the right order.</p>
+      <p class="body-copy">What was expensive was the driving: a person had to trigger every phase, carry context from one to the next and stitch the output together. DABBA moves that orchestration into the system — without changing the method.</p>
+      <p class="quote">"The value wasn't locked in the agents.<br><strong>It was locked in the person who knew how to drive them.</strong>"</p>
+    </div>
+  </section>
+
+  <section class="wrap" id="proof">
+    <div class="eyebrow">02 / Verified run</div>
+    <div class="stats-band" style="margin-top:24px">
+      <div class="stat"><div class="num">5/5</div><div class="label">Phases completed</div></div>
+      <div class="stat"><div class="num">0</div><div class="label">Manual interventions</div></div>
+      <div class="stat"><div class="num">7m 15s</div><div class="label">End-to-end runtime</div></div>
+    </div>
+    <div class="stats-footnote"><span class="dot"></span>Real sample RFP · OpenRouter · free models with fallback</div>
+  </section>
+
+  <section class="wrap" id="architecture">
+    <div class="eyebrow">03 / Under the hood</div>
+    <h2 class="display">One system.<br>Four layers.</h2>
+    <div class="layers" style="margin-top:36px">
+      <div class="layer-row">
+        <span class="num">01</span>
+        <span class="title">DABBA Studio</span>
+        <span class="desc">React interface · chat · pipeline · artifacts</span>
+        <span class="tag">Interface</span>
+      </div>
+      <div class="layer-row">
+        <span class="num">02</span>
+        <span class="title">DABBA Agents</span>
+        <span class="desc">Node / TypeScript · five specialist personas · execution</span>
+        <span class="tag">Intelligence</span>
+      </div>
+      <div class="layer-row">
+        <span class="num">03</span>
+        <span class="title">Memory + connectors</span>
+        <span class="desc">SQLite state · artifacts · Jira · Slack · BYOK models</span>
+        <span class="tag">State</span>
+      </div>
+      <div class="layer-row">
+        <span class="num">04</span>
+        <span class="title">Desktop shell</span>
+        <span class="desc">Tauri native app · supervised sidecar · packaged delivery</span>
+        <span class="tag">Runtime</span>
+      </div>
+    </div>
+
+    <div class="download-panel" id="download">
+      <div class="eyebrow">Get DABBA</div>
+      <h3 id="dl-title">Download for Mac</h3>
+      <p id="dl-copy">Native desktop app for macOS on Apple Silicon (M1 or newer). Ships as an ad-hoc signed .dmg (not notarized) — drag DABBA.app to Applications, then right-click → Open on first launch.</p>
+      <div class="download-actions" id="dl-actions"></div>
+      <p class="download-note" id="dl-note"></p>
+    </div>
+  </section>
+
+  <section class="cta-band wrap">
+    <span class="eyebrow">The next workspace for complex thinking</span>
+    <h2 class="display">Stop driving<br>the pipeline.</h2>
+    <div class="hero-cta" style="justify-content:center; margin-top:32px">
+      <a class="btn btn-primary" href="https://github.com/juliopessan/DPABB-Framework-Desktop" target="_blank" rel="noopener">Explore on GitHub ↗</a>
+    </div>
+  </section>
+</main>
+
+<footer class="site wrap">
+  <span>© 2026 DABBA STUDIO</span>
+  <span>Built for analysis that holds up.</span>
+</footer>
+
+<script>
+  // "Exclusivo para MacBook": client-side platform check gates the download
+  // CTA. This detects "some flavour of Mac", not specifically Apple Silicon —
+  // there is no reliable, honest way to distinguish arm64 vs Intel Macs from
+  // the browser alone, so the Apple Silicon requirement is stated as text
+  // next to the button rather than faked as a hard technical gate.
+  (function () {
+    var ua = navigator.userAgent || "";
+    var platform = (navigator.platform || "") + " " + ua;
+    var isMac = /Mac/i.test(platform) && !/iPhone|iPad|iPod/i.test(ua);
+
+    var DOWNLOAD_URL = "https://github.com/juliopessan/DPABB-Framework-Desktop/releases/download/v0.1.0/DABBA_0.1.0_aarch64.dmg";
+    var REPO_URL = "https://github.com/juliopessan/DPABB-Framework-Desktop";
+
+    var actions = document.getElementById("dl-actions");
+    var note = document.getElementById("dl-note");
+    var title = document.getElementById("dl-title");
+    var copy = document.getElementById("dl-copy");
+
+    if (isMac) {
+      actions.innerHTML =
+        '<a class="btn btn-primary" href="' + DOWNLOAD_URL + '">Download DABBA.dmg ↓</a>' +
+        '<a class="btn btn-ghost" href="' + REPO_URL + '" target="_blank" rel="noopener">View source ↗</a>';
+      note.textContent = "v0.1.0 · ~44MB · unsigned build — right-click → Open on first launch.";
+    } else {
+      title.textContent = "macOS only, for now";
+      copy.textContent = "DABBA ships today as a native macOS app for Apple Silicon. You're not on a Mac, so there's nothing to download here yet — browse the source instead.";
+      actions.innerHTML =
+        '<a class="btn btn-ghost" href="' + REPO_URL + '" target="_blank" rel="noopener">View source on GitHub ↗</a>';
+      note.textContent = "Windows/Linux packaging is on the roadmap, not shipped yet.";
+    }
+  })();
+</script>
+
+</body>
+</html>

@@ -112,7 +112,12 @@ export function getRun(runId: string): PipelineRun | undefined {
 }
 
 export function getArtifacts(runId: string): PhaseArtifact[] {
+  // node:sqlite's .all() types each column as SQLOutputValue (a union
+  // including bigint/Uint8Array) — a direct cast to our narrower app-level
+  // shape is what TS calls out as "insufficiently overlapping". We know the
+  // schema matches PhaseArtifact at runtime, so route through `unknown`
+  // rather than loosen the app-level type to match SQLite's generic one.
   return db
     .prepare("SELECT * FROM phase_artifacts WHERE run_id = ? ORDER BY created_at ASC")
-    .all(runId) as PhaseArtifact[];
+    .all(runId) as unknown as PhaseArtifact[];
 }
