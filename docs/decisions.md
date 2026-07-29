@@ -747,3 +747,52 @@ o teste que só passa se o prompt, e não apenas o template, estiver correto.
 `bundle_dmg.sh` matava o processo `dabba` auto-relançado do volume montado,
 mas não o `agent-server` que ele havia gerado — sobraram dois sidecars órfãos
 segurando a porta 8765. O `kill_sidecar` do Rust só roda em saída graciosa.
+
+---
+
+## Personas expandidas para manuais operacionais completos
+
+As 5 personas (`agent-server/personas/*.md`) passaram de prompts de referência
+rápida (79-165 linhas) para manuais operacionais completos (341-629 linhas),
+mantendo **intocados**: Authority, Commands, Workflow, e toda estrutura de
+template/documento (PRD Structure, Backlog Structure, Business Case Structure,
+TOGAF ADM phases, ADR Format, ícones Azure/M365, Mermaid templates). Verificado
+programaticamente: as 5 listas de comandos retornadas por `GET /agents` são
+byte-idênticas às de antes da expansão (mesma contagem, mesma ordem, mesmo
+texto).
+
+Cada persona ganhou: Mission, Philosophy, Mental Model, Decision Framework,
+Principles, Detailed Workflow (elabora o Workflow original sem alterar seus
+passos), Techniques, Methodologies, Heuristics, Red Flags, Anti-Patterns,
+Quality Criteria, Internal Checklist, Best Practices, Examples e Delegation
+Criteria.
+
+Fundamentação usada por agente (não inventada — metodologias reais e
+reconhecidas na área):
+- **Natasha (discovery):** BABOK, Design Thinking (Empathise/Define),
+  Jobs-to-be-Done, Cynefin.
+- **Vision (prd):** BABOK, ISO/IEC 25010, RFC 2119 (MUST/SHOULD/MAY),
+  linhagem IEEE 830 de engenharia de requisitos.
+- **Tony (architect):** TOGAF 10 ADM (já era a base), C4 Model, Domain-Driven
+  Design, Twelve-Factor App, ISO/IEC 25010.
+- **Steve (backlog):** Scrum, INVEST (Bill Wake), estimativa relativa
+  (planning poker), capacity planning no estilo SAFe, WSJF.
+- **Pepper (business-case):** capital budgeting padrão (NPV/IRR/payback),
+  McKinsey Pyramid Principle, matrizes de risco probabilidade×impacto,
+  frameworks Build vs Buy vs Integrate.
+
+**Validação:** `GET /agents` confirma as 5 listas de comandos inalteradas;
+typecheck limpo (só os 2 erros pré-existentes já documentados, não
+relacionados); teste de execução real do comando `*start` do @discovery
+confirmando que a persona expandida ainda produz saída coerente e no formato
+esperado.
+
+**Nomenclatura conceitual (não uma reestruturação de pastas):** o usuário
+propôs renomear a organização conceitual do framework (DABBA Studio Core /
+Expert Personas / Methodology / Templates / Knowledge Base). Optei por **não**
+renomear fisicamente as pastas (`personas/`, `templates/`) porque
+`loader.ts`, `scripts/build-sidecar.mjs` (assets SEA `persona-${id}.md`,
+`personas-manifest.json`) e o README dependem desses nomes — renomear exigiria
+tocar build tooling e reduziria a rastreabilidade das mudanças. A nomenclatura
+conceitual está registrada aqui como referência; uma reestruturação física
+real, se desejada, deve ser um passo separado e deliberado.
