@@ -102,19 +102,33 @@
   .live-dot { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
   .live-dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--sage); animation: pulse 2.4s infinite ease-in-out; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-  .pipeline-grid { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 16px; align-items: stretch; }
+  .diagram-wrap { position: relative; }
+  .pipeline-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 16px; align-items: stretch; }
   @media (max-width: 860px) { .pipeline-grid { grid-template-columns: 1fr; } }
+  .connectors { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  .connectors path { fill: none; stroke: var(--border); stroke-width: 1.3px; stroke-dasharray: 4 6; stroke-linecap: round; animation: dash 7s linear infinite; }
+  .connectors path.route { stroke: var(--clay); opacity: .55; }
+  @keyframes dash { to { stroke-dashoffset: -80px; } }
+  @media (max-width: 860px) { .connectors { display: none; } }
   .io-card { background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 20px; display: flex; flex-direction: column; justify-content: center; }
   .io-card .eyebrow { color: var(--clay); margin-bottom: 8px; }
   .io-card .big { font-family: var(--display); font-weight: 700; font-size: 22px; }
   .io-card .small { color: var(--ink-soft); font-size: 12px; margin-top: 6px; }
+  .input-node { animation: inputPulse 2.4s ease-in-out infinite; }
+  .output-node { animation: outputFloat 3.4s ease-in-out infinite; }
+  @keyframes inputPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+  @keyframes outputFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
   .phase-list { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
-  .phase-row { display: flex; align-items: center; gap: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 10px 14px; }
+  .phase-row { position: relative; display: flex; align-items: center; gap: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 10px 14px; }
   .phase-row .num { font-family: var(--mono); font-size: 11px; color: var(--clay); width: 20px; flex-shrink: 0; }
   .phase-row .name { font-family: var(--display); font-weight: 700; font-size: 15px; }
   .phase-row .who { color: var(--ink-soft); font-size: 12px; margin-left: auto; }
+  .phase-light { position: absolute; top: 10px; right: 10px; width: 5px; height: 5px; border-radius: 50%; background: var(--clay); animation: pulse 1.9s ease infinite; }
   .pipeline-caption { font-size: 13px; color: var(--ink-soft); }
   .pipeline-caption strong { color: var(--ink); }
+  @media (prefers-reduced-motion: reduce) {
+    .connectors path, .input-node, .output-node, .phase-light { animation: none; }
+  }
 
   .marquee { overflow: hidden; white-space: nowrap; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 14px 0; margin-top: 48px; }
   .marquee-track { display: inline-block; font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); animation: scroll 22s linear infinite; }
@@ -194,23 +208,26 @@
         <span class="eyebrow" style="margin:0">Five chained agents · persisted state · byok</span>
         <span class="live-dot">Live pipeline</span>
       </div>
-      <div class="pipeline-grid">
-        <div class="io-card">
-          <span class="eyebrow">Input</span>
-          <span class="big">RFP</span>
-          <span class="small">PDF · DOCX · MD</span>
-        </div>
-        <div class="phase-list">
-          <div class="phase-row"><span class="num">01</span><span class="name">Discovery</span><span class="who">Natasha</span></div>
-          <div class="phase-row"><span class="num">02</span><span class="name">PRD</span><span class="who">Vision</span></div>
-          <div class="phase-row"><span class="num">03</span><span class="name">Architecture</span><span class="who">Tony</span></div>
-          <div class="phase-row"><span class="num">04</span><span class="name">Backlog</span><span class="who">Steve</span></div>
-          <div class="phase-row"><span class="num">05</span><span class="name">Business case</span><span class="who">Pepper</span></div>
-        </div>
-        <div class="io-card">
-          <span class="eyebrow">Output</span>
-          <span class="big">One document</span>
-          <span class="small">HTML report + SQLite trace</span>
+      <div class="diagram-wrap" id="diagram-wrap">
+        <svg class="connectors" id="connectors" aria-hidden="true"></svg>
+        <div class="pipeline-grid">
+          <div class="io-card input-node" id="input-card">
+            <span class="eyebrow">Input</span>
+            <span class="big">RFP</span>
+            <span class="small">PDF · DOCX · MD</span>
+          </div>
+          <div class="phase-list">
+            <div class="phase-row"><span class="num">01</span><span class="name">Discovery</span><span class="who">Natasha</span><span class="phase-light"></span></div>
+            <div class="phase-row"><span class="num">02</span><span class="name">PRD</span><span class="who">Vision</span><span class="phase-light"></span></div>
+            <div class="phase-row"><span class="num">03</span><span class="name">Architecture</span><span class="who">Tony</span><span class="phase-light"></span></div>
+            <div class="phase-row"><span class="num">04</span><span class="name">Backlog</span><span class="who">Steve</span><span class="phase-light"></span></div>
+            <div class="phase-row"><span class="num">05</span><span class="name">Business case</span><span class="who">Pepper</span><span class="phase-light"></span></div>
+          </div>
+          <div class="io-card output-node" id="output-card">
+            <span class="eyebrow">Output</span>
+            <span class="big">One document</span>
+            <span class="small">HTML report + SQLite trace</span>
+          </div>
         </div>
       </div>
       <p class="pipeline-caption">The input travels the chain. <strong>The context never gets dropped.</strong></p>
@@ -327,6 +344,62 @@
         '<a class="btn btn-ghost" href="' + REPO_URL + '" target="_blank" rel="noopener">View source on GitHub ↗</a>';
       note.textContent = "Windows/Linux packaging is on the roadmap, not shipped yet.";
     }
+  })();
+</script>
+
+<script>
+  // Draws the animated connector lines between the Input card, each phase
+  // row and the Output card. Computed from actual layout (getBoundingClientRect)
+  // rather than fixed coordinates, so the curves stay correct across screen
+  // sizes and font-loading reflows instead of only matching one fixed viewBox.
+  (function () {
+    var wrap = document.getElementById("diagram-wrap");
+    var svg = document.getElementById("connectors");
+    var inputEl = document.getElementById("input-card");
+    var outputEl = document.getElementById("output-card");
+    if (!wrap || !svg || !inputEl || !outputEl) return;
+
+    function anchor(el, side) {
+      var r = el.getBoundingClientRect();
+      var w = wrap.getBoundingClientRect();
+      return {
+        x: (side === "right" ? r.right : r.left) - w.left,
+        y: r.top - w.top + r.height / 2,
+      };
+    }
+
+    function draw() {
+      if (window.matchMedia("(max-width: 860px)").matches) {
+        svg.innerHTML = "";
+        return;
+      }
+      var w = wrap.getBoundingClientRect();
+      svg.setAttribute("viewBox", "0 0 " + w.width + " " + w.height);
+
+      var inPt = anchor(inputEl, "right");
+      var outPt = anchor(outputEl, "left");
+      var phases = wrap.querySelectorAll(".phase-row");
+      var html = "";
+      phases.forEach(function (row) {
+        var left = anchor(row, "left");
+        var right = anchor(row, "right");
+        var c1 = inPt.x + (left.x - inPt.x) * 0.55;
+        var c2 = left.x - (left.x - inPt.x) * 0.55;
+        html +=
+          '<path d="M' + inPt.x + " " + inPt.y +
+          " C " + c1 + " " + inPt.y + " " + c2 + " " + left.y + " " + left.x + " " + left.y + '"></path>';
+        var c3 = right.x + (outPt.x - right.x) * 0.55;
+        var c4 = outPt.x - (outPt.x - right.x) * 0.55;
+        html +=
+          '<path class="route" d="M' + right.x + " " + right.y +
+          " C " + c3 + " " + right.y + " " + c4 + " " + outPt.y + " " + outPt.x + " " + outPt.y + '"></path>';
+      });
+      svg.innerHTML = html;
+    }
+
+    draw();
+    window.addEventListener("resize", draw);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
   })();
 </script>
 
