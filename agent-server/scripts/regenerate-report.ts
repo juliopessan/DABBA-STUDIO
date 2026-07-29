@@ -6,7 +6,7 @@ const runId = process.argv[2];
 if (!runId) throw new Error("uso: tsx scripts/regenerate-report.ts <runId>");
 
 const run = getRun(runId);
-if (!run) throw new Error(`run não encontrado: ${runId}`);
+if (!run) throw new Error(`run not found: ${runId}`);
 const artifacts = getArtifacts(runId);
 const html = buildConsolidatedReport(run, artifacts);
 writeFileSync(run.report_path!, html, "utf-8");

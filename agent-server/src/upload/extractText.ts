@@ -44,6 +44,6 @@ export async function extractText(buffer: Buffer, extension: string): Promise<st
   }
 
   throw new Error(
-    `Formato .${ext} não suportado. Use PDF, DOCX, HTML ou TXT/MD (arquivos .doc antigos precisam ser convertidos para .docx).`
+    `Unsupported format .${ext}. Use PDF, DOCX, HTML or TXT/MD (legacy .doc files must be converted to .docx).`
   );
 }

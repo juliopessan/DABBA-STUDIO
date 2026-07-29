@@ -34,6 +34,7 @@ export default function PipelineRunner() {
   const [runId, setRunId] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "done" | "failed">("idle");
   const [artifacts, setArtifacts] = useState<PipelineArtifact[]>([]);
+  const [runStartedAt, setRunStartedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +53,7 @@ export default function PipelineRunner() {
         const data = await getPipelineStatus(runId);
         consecutiveFailures = 0;
         setArtifacts(data.artifacts);
+        setRunStartedAt(data.run.created_at);
         if (data.run.status !== "running") {
           setStatus(data.run.status);
           clearInterval(interval);
@@ -102,6 +104,7 @@ export default function PipelineRunner() {
   async function handleStart() {
     setError(null);
     setArtifacts([]);
+    setRunStartedAt(null);
     setElapsed(0);
     try {
       const { runId } = await startPipeline(projectName || "Untitled project", rfpText);
@@ -370,7 +373,7 @@ export default function PipelineRunner() {
                 borderTop: "1px solid var(--dabba-border)",
               }}
             >
-              <PhaseTimeline artifacts={artifacts} status={status} />
+              <PhaseTimeline artifacts={artifacts} status={status} runStartedAt={runStartedAt} />
 
               <AnimatePresence>
                 {status === "done" && runId && (

@@ -699,3 +699,51 @@ Observado ao vivo: Discovery com anel laranja parcial e rótulo "Sleuthing…",
 depois Discovery com anel verde fechado + check e PRD com anel laranja parcial
 e rótulo "Drafting…" — confirmando o preenchimento, o fechamento na conclusão e
 a troca de pool de palavras junto com a fase.
+
+---
+
+## Tempo por fase, personas Marvel e artefato 100% EN-US
+
+**Tempo de execução por fase.** Os artefatos já carregam `created_at` e o run
+também — a duração de uma fase é a diferença para o artefato anterior (ou para
+o início do run, na primeira). Nada de schema novo. A fase em execução mostra
+contagem ao vivo, calculada no render e avançada pelo tick de 1s que o
+`PipelineRunner` já mantinha. Um detalhe: o valor ao vivo usa `Date.now()` do
+cliente e pode passar alguns segundos do real até o polling (3s) entregar o
+timestamp do servidor — quando chega, o número assenta no valor autoritativo.
+O rótulo usa mono **sem** a classe `.dabba-eyebrow`, cujo `text-transform`
+renderizava "30s" como "30S".
+
+**Personas Marvel.** Escolhidas pelo papel, não por popularidade:
+Natasha (discovery — reconhecimento e elicitação), Vision (PRD — síntese e
+rastreabilidade), Tony (architect — engenharia), Steve (backlog — decompor uma
+missão em passos), Pepper (business-case — CEO, ROI, GO/NO-GO).
+
+**Artefato 100% EN-US — a causa era o prompt, não o template.** O relatório
+saía misturado porque *as personas estavam escritas em português*: o idioma da
+saída de um LLM segue o idioma do system prompt. Traduzir só o HTML teria
+deixado o conteúdo — a maior parte do documento — em português.
+
+Foram três frentes:
+1. As 5 personas traduzidas (812 linhas), preservando caminhos de ícones e
+   templates Mermaid intactos.
+2. `loader.ts` passou a fazer parse de `## Commands` — o parser procurava
+   `## Comandos` e traduzir as personas sem isso zeraria a lista de comandos
+   de todo agente.
+3. Uma `LANGUAGE_RULE` no topo de **todo** system prompt (não só do pipeline:
+   um comando avulso também gera artefato para cliente). Sem ela o modelo
+   espelha o idioma da entrada — uma RFP em português voltaria a produzir
+   documento em português mesmo com persona inglesa.
+
+Também traduzidos: o gerador de HTML (`lang="en"`, data em `en-US`, títulos) e
+as mensagens de erro da API, que são voltadas ao usuário.
+
+**Validação:** rodei o pipeline completo com uma **RFP escrita em português**
+(rede de clínicas, LGPD, prazo em meses). As 5 fases saíram em inglês e o
+relatório final tem **zero diacríticos portugueses** no documento inteiro —
+o teste que só passa se o prompt, e não apenas o template, estiver correto.
+
+**Efeito colateral achado no caminho:** o loop que eu usava para contornar o
+`bundle_dmg.sh` matava o processo `dabba` auto-relançado do volume montado,
+mas não o `agent-server` que ele havia gerado — sobraram dois sidecars órfãos
+segurando a porta 8765. O `kill_sidecar` do Rust só roda em saída graciosa.

@@ -12,11 +12,11 @@ function parseAgent(id: string, content: string): Agent {
   const header = content.match(/^# @([\w-]+) — (.+)$/m);
   const name = header?.[2]?.trim() ?? id;
 
-  const commandsBlock = content.match(/## Comandos\n([\s\S]*?)\n##/);
-  // Só a primeira ocorrência de cada comando conta como definição; qualquer
-  // referência cruzada subsequente entre crases (ex.: "saída do `*breakdown`"
-  // dentro da descrição de outro comando) é ignorada em vez de duplicar a
-  // entrada na lista de comandos do agente.
+  const commandsBlock = content.match(/## Commands\n([\s\S]*?)\n##/);
+  // Only the first occurrence of each command counts as its definition; any
+  // later cross-reference in backticks (e.g. "output of `*breakdown`" inside
+  // another command's description) is ignored rather than duplicating the
+  // entry in the agent's command list.
   const commands = commandsBlock
     ? [...new Set([...commandsBlock[1].matchAll(/`(\*[\w-]+)`/g)].map((m) => m[1]))]
     : [];
@@ -24,12 +24,12 @@ function parseAgent(id: string, content: string): Agent {
   return { id, name, commands, persona: content };
 }
 
-// Empacotado como Node SEA (sidecar Tauri), não existe um "arquivo ao lado
-// do source" para localizar via import.meta.url/__dirname — o executável é
-// um blob único. As personas viram *assets* embutidos no binário (ver
-// scripts/build-sidecar.mjs), lidos via o módulo builtin `node:sea`.
-// `import("node:sea")` é feito dinamicamente para não quebrar o bundle CJS
-// (o SEA config do Node exige CJS; `import.meta` não sobrevive à conversão).
+// Packaged as a Node SEA (Tauri sidecar) there is no "file next to the
+// source" to locate via import.meta.url/__dirname — the executable is a single
+// blob. The personas become *assets* embedded in the binary (see
+// scripts/build-sidecar.mjs), read through the `node:sea` builtin.
+// `import("node:sea")` is dynamic so it doesn't break the CJS bundle (Node's
+// SEA config requires CJS; `import.meta` does not survive the conversion).
 async function loadAgentsFromSeaAssets(): Promise<Agent[]> {
   const sea = await import("node:sea");
   const manifest = JSON.parse(sea.getAsset("personas-manifest.json", "utf8")) as string[];
@@ -40,10 +40,10 @@ async function loadAgentsFromSeaAssets(): Promise<Agent[]> {
 }
 
 function loadAgentsFromDisk(): Agent[] {
-  // Em dev (tsx) e no build tsc tradicional, personas/ fica duas pastas
-  // acima do arquivo compilado (agent-server/personas), resolvida a partir
-  // do cwd do processo (agent-server/), que é como `npm run dev` e
-  // `npm start` sempre são invocados neste projeto.
+  // In dev (tsx) and in a plain tsc build, personas/ sits two folders above
+  // the compiled file (agent-server/personas), resolved from the process cwd
+  // (agent-server/), which is how `npm run dev` and `npm start` are always
+  // invoked in this project.
   const personasDir = path.resolve(process.cwd(), "personas");
   return readdirSync(personasDir)
     .filter((f) => f.endsWith(".md"))

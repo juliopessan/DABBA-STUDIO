@@ -4,16 +4,26 @@ export interface RunRequest {
   systemPrompt: string;
   command: string;
   input?: string;
-  // As personas foram escritas para um workflow humano-no-loop (fazem
-  // perguntas de esclarecimento, pedem confirmação antes de prosseguir).
-  // No pipeline automatizado não há humano para responder — sem este
-  // aviso, o modelo (sobretudo os free/pequenos) degenera em "conversar"
-  // sobre a fase anterior em vez de executar a sua ("Resposta: Sim,
-  // procedemos com..."), observado em teste real encadeando as 5 fases.
+  // The personas were written for a human-in-the-loop workflow (they ask
+  // clarifying questions and wait for confirmation). In the automated
+  // pipeline there is no human to answer — without this notice the model
+  // (especially the small/free ones) degenerates into "chatting" about the
+  // previous phase instead of executing its own ("Answer: Yes, we proceed
+  // with…"), observed in a real run chaining all 5 phases.
   autoMode?: boolean;
 }
 
-const AUTO_MODE_PREFIX = `MODO PIPELINE AUTOMATIZADO — não há humano disponível para responder perguntas, confirmações ou pedidos de esclarecimento. Nunca pergunte, nunca peça confirmação, nunca escreva frases como "confirme se deseja..." ou "aguardando sua resposta". Execute o comando pedido e gere o artefato completo diretamente nesta resposta, adotando suposições razoáveis (e documentando-as) onde normalmente entrevistaria um humano.
+const AUTO_MODE_PREFIX = `AUTOMATED PIPELINE MODE — there is no human available to answer questions, give confirmations or clarify anything. Never ask, never request confirmation, never write phrases like "confirm whether you want…" or "awaiting your reply". Execute the requested command and produce the complete artifact directly in this response, adopting reasonable assumptions (and documenting them) wherever you would normally interview a human.
+
+---
+
+`;
+
+// The model mirrors the language of its input by default, so a Portuguese or
+// Spanish RFP produced a mixed-language report even with English personas.
+// Every artifact is a client deliverable, so the output language is pinned
+// here — independent of the language the source document happens to be in.
+const LANGUAGE_RULE = `OUTPUT LANGUAGE — write every artifact in English (EN-US), regardless of the language of the RFP, the attached documents or any earlier phase. Translate quoted source material into English rather than reproducing it verbatim in another language.
 
 ---
 
@@ -31,7 +41,7 @@ const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
 function buildUserMessage(command: string, input?: string): string {
-  return input ? `Comando: ${command}\n\n${input}` : `Comando: ${command}`;
+  return input ? `Command: ${command}\n\n${input}` : `Command: ${command}`;
 }
 
 async function runAnthropic(apiKey: string, systemPrompt: string, userMessage: string): Promise<RunResult> {
@@ -78,7 +88,10 @@ async function runOpenRouter(apiKey: string, systemPrompt: string, userMessage: 
 
 export async function runAgentCommand(req: RunRequest): Promise<RunResult> {
   const userMessage = buildUserMessage(req.command, req.input);
-  const systemPrompt = req.autoMode ? AUTO_MODE_PREFIX + req.systemPrompt : req.systemPrompt;
+  // The language rule applies to every call, not just pipeline runs — a single
+  // command executed by hand produces a client-facing artifact too.
+  const systemPrompt =
+    LANGUAGE_RULE + (req.autoMode ? AUTO_MODE_PREFIX + req.systemPrompt : req.systemPrompt);
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const anthropicKey = process.env.DABBA_LLM_API_KEY;
   const provider = process.env.DABBA_LLM_PROVIDER ?? (openRouterKey ? "openrouter" : anthropicKey ? "anthropic" : undefined);

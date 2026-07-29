@@ -11,15 +11,16 @@ import { startPipeline, PIPELINE_STEPS } from "./pipeline/orchestrator.js";
 import { getRun, getArtifacts } from "./db/sqlite.js";
 import { ENV_FILE } from "./appPaths.js";
 
-// Em dev, o `.env` vive ao lado do source (agent-server/.env) — tentado
-// primeiro para não quebrar o fluxo de desenvolvimento existente.
-// Empacotado como sidecar Tauri não há "ao lado do executável" gravável;
-// as chaves do usuário ficam em ~/Library/Application Support/DABBA/.env.
+// In dev the `.env` lives next to the source (agent-server/.env) — tried
+// first so the existing development flow keeps working. Packaged as a Tauri
+// sidecar there is no writable "next to the executable"; the user's keys live
+// in ~/Library/Application Support/DABBA/.env.
 //
-// O `.env` relativo ao cwd só é lido em dev: empacotado, o cwd é o de quem
-// abriu o app e pode conter um `.env` de outro projeto. Como dotenv nunca
-// sobrescreve var já definida, um `OPENROUTER_API_KEY=` vazio herdado desse
-// arquivo silenciava a chave real do usuário e o app caía em dry-run.
+// The cwd-relative `.env` is only read in dev: when packaged, the cwd belongs
+// to whoever launched the app and may hold another project's `.env`. Since
+// dotenv never overwrites an already-defined variable, an empty
+// `OPENROUTER_API_KEY=` inherited from that file silenced the user's real key
+// and the app fell back to dry-run.
 if (!isSea() && existsSync(".env")) dotenv.config({ path: ".env" });
 dotenv.config({ path: ENV_FILE });
 
@@ -78,14 +79,14 @@ app.post("/agents/:id/run", async (req, res) => {
 
 app.post("/extract-text", upload.single("file"), async (req, res) => {
   if (!req.file) {
-    res.status(400).json({ error: "nenhum arquivo enviado (campo 'file')" });
+    res.status(400).json({ error: "no file provided (field 'file')" });
     return;
   }
 
   const extension = path.extname(req.file.originalname).slice(1);
   if (!isSupportedExtension(extension)) {
     res.status(415).json({
-      error: `Formato .${extension} não suportado. Use PDF, DOCX, HTML ou TXT/MD.`,
+      error: `Unsupported format .${extension}. Use PDF, DOCX, HTML or TXT/MD.`,
     });
     return;
   }
@@ -101,7 +102,7 @@ app.post("/extract-text", upload.single("file"), async (req, res) => {
 app.post("/pipeline/run", (req, res) => {
   const { projectName, rfpText } = req.body as { projectName?: string; rfpText?: string };
   if (!projectName || !rfpText) {
-    res.status(400).json({ error: "projectName e rfpText são obrigatórios" });
+    res.status(400).json({ error: "projectName and rfpText are required" });
     return;
   }
 
@@ -130,7 +131,7 @@ app.get("/pipeline/:id", (req, res) => {
 app.get("/pipeline/:id/report.html", (req, res) => {
   const run = getRun(req.params.id);
   if (!run || !run.report_path) {
-    res.status(404).send("Relatório ainda não disponível para este run.");
+    res.status(404).send("The report is not available for this run yet.");
     return;
   }
   res.setHeader("content-type", "text/html; charset=utf-8");

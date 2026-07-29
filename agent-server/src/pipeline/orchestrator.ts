@@ -7,16 +7,16 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { OUTPUT_DIR } from "../appPaths.js";
 
-// Ordem oficial do pipeline DABBA (Discovery → PRD → Architect → Backlog →
-// Business Case), documentada no CLAUDE.md do framework original — cada
-// fase usa o(s) comando(s) de geração do agente e recebe o artefato da fase
-// anterior como premissa/contexto.
+// Official DABBA pipeline order (Discovery → PRD → Architect → Backlog →
+// Business Case), documented in the original framework's CLAUDE.md — each
+// phase runs the agent's generating command(s) and receives the previous
+// phase's artifact as its premise/context.
 //
-// Backlog encadeia 3 comandos (não 1): modelos free tendem a esquecer
-// seções quando um único prompt pede Epics + Effort Estimation + Staffing
-// de uma vez (testado: nvidia/nemotron-nano-9b ignorou as duas últimas
-// seções mesmo com instrução explícita). Pedir cada seção como um comando
-// separado, encadeado, é bem mais confiável do que um mega-prompt.
+// Backlog chains 3 commands (not 1): free models tend to drop sections when a
+// single prompt asks for Epics + Effort Estimation + Staffing at once (tested:
+// nvidia/nemotron-nano-9b ignored the last two even with an explicit
+// instruction). Asking for each section as a separate, chained command is far
+// more reliable than one mega-prompt.
 export const PIPELINE_STEPS = [
   { phase: "discovery", agentId: "discovery", commands: ["*start"] },
   { phase: "prd", agentId: "prd", commands: ["*generate"] },
@@ -25,8 +25,9 @@ export const PIPELINE_STEPS = [
   { phase: "business-case", agentId: "business-case", commands: ["*analyze"] },
 ] as const;
 
-// Cria o run e dispara o processamento em background (não bloqueia a
-// resposta HTTP) — o cliente acompanha via polling em GET /pipeline/:id.
+// Creates the run and kicks off processing in the background (it does not
+// block the HTTP response) — the client follows along by polling
+// GET /pipeline/:id.
 export function startPipeline(projectName: string, rfpText: string): PipelineRun {
   const run = createRun(projectName);
   processPipeline(run.id, rfpText).catch((err) => {
@@ -42,14 +43,14 @@ async function processPipeline(runId: string, rfpText: string): Promise<void> {
     const agent = getAgent(step.agentId);
     if (!agent) {
       updateRunStatus(runId, "failed");
-      throw new Error(`agente não encontrado no registry: ${step.agentId}`);
+      throw new Error(`agent not found in registry: ${step.agentId}`);
     }
 
-    // Dentro da fase, cada comando recebe TODAS as saídas acumuladas dos
-    // comandos anteriores da mesma fase (não só a do imediatamente
-    // anterior) — o *staffing precisa enxergar o *breakdown (volume de
-    // stories por especialidade) e o *estimate (pontos/sprints) juntos,
-    // não apenas o resumo do *estimate isolado.
+    // Within a phase, each command receives ALL accumulated outputs from the
+    // earlier commands of that same phase (not just the immediately previous
+    // one) — *staffing needs to see *breakdown (story volume per speciality)
+    // and *estimate (points/sprints) together, not the *estimate summary
+    // alone.
     let phaseInput = carriedInput;
     const sections: string[] = [];
     let lastProvider: string | undefined;
@@ -63,11 +64,11 @@ async function processPipeline(runId: string, rfpText: string): Promise<void> {
         updateRunStatus(runId, "failed");
         throw error;
       }
-      // Desembrulha o fence externo (se houver) ANTES de concatenar — cada
-      // comando gera sua própria resposta com seu próprio fence individual;
-      // se concatenássemos primeiro, o texto combinado teria múltiplos
-      // pares de fence e a heurística de desembrulho (que só age com
-      // exatamente 1 par) deixaria de disparar para qualquer uma delas.
+      // Unwrap the outer fence (if any) BEFORE concatenating — each command
+      // produces its own response with its own individual fence; if we
+      // concatenated first, the combined text would hold multiple fence pairs
+      // and the unwrap heuristic (which only fires on exactly 1 pair) would
+      // stop triggering for any of them.
       sections.push(unwrapOuterCodeFence(result.output));
       phaseInput = sections.join("\n\n");
       lastProvider = result.provider;
@@ -80,7 +81,7 @@ async function processPipeline(runId: string, rfpText: string): Promise<void> {
   }
 
   const run = getRun(runId);
-  if (!run) throw new Error(`run não encontrado após processamento: ${runId}`);
+  if (!run) throw new Error(`run not found after processing: ${runId}`);
   const artifacts = getArtifacts(runId);
   const html = buildConsolidatedReport(run, artifacts);
 

@@ -2,10 +2,10 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-// Empacotado (SEA/sidecar) não tem __dirname relativo ao source nem um
-// cwd previsível — dados e config precisam viver num lugar estável do
-// usuário, seguindo a convenção de cada SO, não ao lado do executável
-// (que pode estar dentro de um .app bundle somente-leitura).
+// When packaged (SEA/sidecar) there is no source-relative __dirname and no
+// predictable cwd — data and config must live somewhere stable for the user,
+// following each OS's convention, not next to the executable (which may sit
+// inside a read-only .app bundle).
 function resolveAppDataDir(): string {
   const home = os.homedir();
   if (process.platform === "darwin") return path.join(home, "Library", "Application Support", "DABBA");

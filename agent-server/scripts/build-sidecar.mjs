@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Empacota o agent-server (Node/Express) como um executável standalone via
+// Packages the agent-server (Node/Express) as a standalone executable via
 // Node SEA (Single Executable Application), no nome/formato que o Tauri
 // espera para um sidecar: binaries/agent-server-<target-triple>.
 //
-// Passos: bundlar tudo num único CJS (esbuild) → gerar o blob SEA → copiar
-// o binário do Node → injetar o blob nele (postject) → re-assinar (macOS
-// invalida a assinatura ao alterar o binário).
+// Steps: bundle everything into a single CJS file (esbuild) → generate the
+// SEA blob → copy the Node binary → inject the blob into it (postject) →
+// re-sign (macOS invalidates the signature when the binary changes).
 import { execFileSync } from "node:child_process";
 import { chmodSync, copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -15,8 +15,8 @@ import * as esbuild from "esbuild";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const BUILD_DIR = path.join(ROOT, ".sidecar-build");
-// Fora de BUILD_DIR (que é limpo a cada build) — o binário oficial do Node
-// tem ~130MB, não vale a pena rebaixar a cada `npm run build:sidecar`.
+// Outside BUILD_DIR (which is wiped on every build) — the official Node
+// binary is ~130MB, not worth re-downloading on every `npm run build:sidecar`.
 const NODE_CACHE_DIR = path.join(ROOT, ".sidecar-cache");
 const BINARIES_DIR = path.resolve(ROOT, "../desktop-shell/src-tauri/binaries");
 const NODE_VERSION = "v25.8.1";
@@ -31,16 +31,16 @@ function rustTargetTriple() {
   const rustc = existsSync(rustupBin) ? rustupBin : "rustc";
   const out = execFileSync(rustc, ["-vV"], { encoding: "utf-8" });
   const match = out.match(/host: (\S+)/);
-  if (!match) throw new Error("não foi possível determinar o target triple via `rustc -vV`");
+  if (!match) throw new Error("could not determine the target triple via `rustc -vV`");
   return match[1];
 }
 
 // O Node do sistema (Homebrew, nvm, etc.) costuma ser linkado dinamicamente
-// contra dylibs do próprio gerenciador de pacotes (libnode, openssl, icu4c…)
-// em caminhos absolutos daquela máquina — copiar esse binário para outra
-// máquina simplesmente não funciona lá. O binário oficial do nodejs.org é
-// estático (só linka frameworks do próprio macOS), que é o que a
-// documentação de Node SEA recomenda para builds redistribuíveis.
+// against its own package manager's dylibs (libnode, openssl, icu4c…) at
+// absolute paths on that machine — copying that binary to another machine
+// simply does not work there. The official nodejs.org binary is static (it
+// only links macOS's own frameworks), which is what the Node SEA docs
+// recommend for redistributable builds.
 function nodePlatformArch() {
   const platform = process.platform === "win32" ? "win" : process.platform;
   const arch = process.arch; // "arm64" | "x64"
@@ -58,7 +58,7 @@ async function officialNodeBinaryPath() {
   const ext = platform === "win" ? "zip" : "tar.gz";
   const url = `https://nodejs.org/dist/${NODE_VERSION}/${dirName}.${ext}`;
   const archivePath = path.join(cacheDir, `node.${ext}`);
-  console.log(`baixando Node oficial (estático) de ${url}...`);
+  console.log(`downloading official (static) Node from ${url}…`);
   sh("curl", ["-sL", url, "-o", archivePath]);
   if (ext === "tar.gz") sh("tar", ["-xzf", archivePath, "-C", cacheDir]);
   else sh("unzip", ["-q", archivePath, "-d", cacheDir]);
@@ -70,7 +70,7 @@ async function main() {
   mkdirSync(BUILD_DIR, { recursive: true });
   mkdirSync(BINARIES_DIR, { recursive: true });
 
-  console.log("1/5 — bundlando agent-server num único arquivo CJS...");
+  console.log("1/5 — bundling agent-server into a single CJS file…");
   await esbuild.build({
     entryPoints: [path.join(ROOT, "src/index.ts")],
     bundle: true,
@@ -79,11 +79,11 @@ async function main() {
     target: "node22",
     outfile: path.join(BUILD_DIR, "bundle.cjs"),
     // node:sqlite e demais `node:*` builtins ficam automaticamente
-    // externos ao bundle (resolvidos pelo runtime, não pelo esbuild).
+    // external to the bundle (resolved by the runtime, not by esbuild).
   });
 
-  console.log("2/5 — gerando configuração e blob SEA (personas embutidas como assets)...");
-  // O executável SEA é um blob único — não há "arquivo ao lado" para o
+  console.log("2/5 — generating SEA config and blob (personas embedded as assets)…");
+  // The SEA executable is a single blob — there is no "file next to it" for the
   // runtime ler personas/*.md do disco. Cada persona vira um asset
   // embutido (chave `persona-<id>.md`), mais um manifest listando os ids
   // para o loader saber quais assets pedir (ver src/agents/loader.ts).
@@ -120,23 +120,23 @@ async function main() {
   const outBinary = path.join(BINARIES_DIR, `agent-server-${triple}${ext}`);
 
   const nodeBinary = await officialNodeBinaryPath();
-  console.log(`3/5 — copiando o binário oficial do Node (${nodeBinary}) para ${outBinary}...`);
+  console.log(`3/5 — copying the official Node binary (${nodeBinary}) to ${outBinary}…`);
   copyFileSync(nodeBinary, outBinary);
   chmodSync(outBinary, 0o755);
 
   if (process.platform === "darwin") {
-    console.log("4/5 — removendo assinatura existente (necessário antes de injetar o blob)...");
+    console.log("4/5 — removing the existing signature (required before injecting the blob)…");
     sh("codesign", ["--remove-signature", outBinary]);
   }
 
-  console.log("5/5 — injetando o blob no binário via postject...");
-  // npm workspaces içam devDependencies compartilhadas para o node_modules
-  // da raiz do monorepo — não necessariamente para agent-server/node_modules.
+  console.log("5/5 — injecting the blob into the binary via postject…");
+  // npm workspaces hoist shared devDependencies to the monorepo root's
+  // node_modules — not necessarily to agent-server/node_modules.
   const postjectCli = [
     path.join(ROOT, "node_modules/postject/dist/cli.js"),
     path.join(ROOT, "../node_modules/postject/dist/cli.js"),
   ].find(existsSync);
-  if (!postjectCli) throw new Error("postject não encontrado (nem local nem na raiz do monorepo)");
+  if (!postjectCli) throw new Error("postject not found (neither local nor at the monorepo root)");
   sh(process.execPath, [
     postjectCli,
     outBinary,
@@ -148,11 +148,11 @@ async function main() {
   ]);
 
   if (process.platform === "darwin") {
-    console.log("re-assinando (ad-hoc) após a injeção...");
+    console.log("re-signing (ad-hoc) after injection…");
     sh("codesign", ["--sign", "-", outBinary]);
   }
 
-  console.log(`\nsidecar pronto: ${outBinary}`);
+  console.log(`\nsidecar ready: ${outBinary}`);
 }
 
 main().catch((err) => {

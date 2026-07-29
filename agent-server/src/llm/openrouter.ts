@@ -1,7 +1,7 @@
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// Ordem de preferência: modelos generalistas e mais estáveis primeiro.
-// Sobrescrevível via DABBA_OPENROUTER_MODELS (lista separada por vírgula).
+// Preference order: generalist, more stable models first.
+// Overridable via DABBA_OPENROUTER_MODELS (comma-separated list).
 export const DEFAULT_FREE_MODELS = [
   "nvidia/nemotron-nano-9b-v2:free",
   "openai/gpt-oss-20b:free",
@@ -34,8 +34,8 @@ export interface OpenRouterResult {
   attempts: OpenRouterAttempt[];
 }
 
-// Erros que justificam tentar o próximo modelo da lista (indisponibilidade
-// temporária ou de conta), em vez de propagar o erro imediatamente.
+// Errors worth retrying with the next model in the list (temporary or
+// account-level unavailability), instead of propagating immediately.
 const RETRYABLE_STATUS = new Set([429, 402, 404, 408, 500, 502, 503, 504]);
 
 export async function runWithFallback(

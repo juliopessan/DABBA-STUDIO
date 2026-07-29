@@ -13,17 +13,17 @@ function inline(text: string): string {
   return out;
 }
 
-// Agentes frequentemente envolvem a resposta inteira num único bloco
-// ```markdown ... ```, às vezes com um preâmbulo ("Segue o PRD:") antes ou
-// uma nota solta ("Se quiser ajustar...") depois. Sem isso, o parser
-// trataria o documento inteiro como código literal.
+// Agents often wrap the whole response in a single ```markdown … ``` block,
+// sometimes with a preamble ("Here is the PRD:") before it or a stray note
+// ("Let me know if you want changes…") after. Without this the parser would
+// treat the entire document as literal code.
 //
-// Só desembrulha quando há EXATAMENTE um par de fences no documento inteiro
-// (a resposta inteira = 1 bloco). Documentos com múltiplos blocos de código
-// legítimos (ex: vários diagramas ```mermaid na fase de arquitetura) têm
-// mais de 2 marcadores — nesse caso cada fence deve ser tratado
-// individualmente pelo parser, não descartado como se fosse um wrapper
-// único (fazer isso quebra o pareamento de todos os fences internos).
+// Only unwrap when there is EXACTLY one fence pair in the whole document (the
+// entire response = 1 block). Documents with several legitimate code blocks
+// (e.g. multiple ```mermaid diagrams in the architecture phase) have more
+// than 2 markers — there each fence must be handled individually by the
+// parser, not discarded as if it were a single wrapper (doing so breaks the
+// pairing of every inner fence).
 export function unwrapOuterCodeFence(markdown: string): string {
   const fenceLine = /^\s*```[a-z]*\s*$/im;
   const lines = markdown.split("\n");
@@ -60,9 +60,9 @@ interface ListFrame {
   liOpen: boolean;
 }
 
-// Conversor de markdown → HTML sem dependência externa: headers, negrito/
-// itálico/código inline, blocos de código, tabelas GFM, listas ordenadas e
-// não-ordenadas com aninhamento por indentação, e parágrafos.
+// Dependency-free markdown → HTML converter: headers, bold/italic/inline
+// code, code blocks, GFM tables, ordered and unordered lists with
+// indentation-based nesting, and paragraphs.
 export function markdownToHtml(markdown: string): string {
   const lines = unwrapOuterCodeFence(markdown).split("\n");
   const html: string[] = [];
@@ -77,8 +77,8 @@ export function markdownToHtml(markdown: string): string {
     }
   }
 
-  // Fecha frames da pilha de listas até (exclusive) o indent alvo — usado
-  // tanto em transições de indentação quanto para fechar tudo no final.
+  // Close list-stack frames down to (but excluding) the target indent — used
+  // both on indentation transitions and to close everything at the end.
   function closeListsDeeperThan(indent: number) {
     while (listStack.length && listStack[listStack.length - 1].indent >= indent) {
       const frame = listStack.pop()!;
@@ -119,9 +119,9 @@ export function markdownToHtml(markdown: string): string {
       flushParagraph();
       closeAllLists();
       const header = splitTableRow(line);
-      // Envolve em div com scroll horizontal próprio — colunas como
-      // "Justificativa" (Plano de Staffing) podem ter texto longo o
-      // suficiente para forçar a tabela além da largura do documento.
+      // Wrap in a div with its own horizontal scroll — columns such as
+      // "Rationale" (Staffing Plan) can hold text long enough to push the
+      // table past the document width.
       html.push('<div class="table-wrap"><table><thead><tr>' + header.map((c) => `<th>${inline(c)}</th>`).join("") + "</tr></thead><tbody>");
       i += 2;
       while (i < lines.length && TABLE_ROW.test(lines[i])) {
@@ -145,7 +145,7 @@ export function markdownToHtml(markdown: string): string {
     if (heading) {
       flushParagraph();
       closeAllLists();
-      const level = heading[1].length + 1; // h2..h5, h1 reservado pro título da fase
+      const level = heading[1].length + 1; // h2..h5, h1 reserved for the phase title
       html.push(`<h${level}>${inline(heading[2])}</h${level}>`);
       i++;
       continue;
@@ -183,9 +183,9 @@ export function markdownToHtml(markdown: string): string {
       continue;
     }
 
-    // Continuação de um item de lista (linha indentada sem marcador,
+    // Continuation of a list item (an indented line with no marker,
     // logo abaixo de um <li> aberto) — anexa ao mesmo item em vez de
-    // virar um parágrafo solto.
+    // become a stray paragraph.
     if (listStack.length && listStack[listStack.length - 1].liOpen && /^\s+\S/.test(rawLine)) {
       html.push(" " + inline(line.trim()));
       i++;
