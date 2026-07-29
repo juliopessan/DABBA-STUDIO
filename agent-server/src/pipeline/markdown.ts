@@ -13,38 +13,74 @@ function inline(text: string): string {
   return out;
 }
 
-// Agents often wrap the whole response in a single ```markdown … ``` block,
-// sometimes with a preamble ("Here is the PRD:") before it or a stray note
-// ("Let me know if you want changes…") after. Without this the parser would
-// treat the entire document as literal code.
+// A fence's info string (the text right after the opening backticks, e.g.
+// "mermaid" in ```mermaid) is what distinguishes an opener from a closer per
+// CommonMark: a closing fence must carry NO info string. A line like
+// ```mermaid appearing while already inside a fence is therefore never a
+// closer — it's literal content of whatever fence is currently open. Pairing
+// fences any other way (e.g. "every ``` line toggles code mode") misreads
+// that line as closing the wrong block and silently reshuffles which spans
+// of the document end up as code vs. prose.
+interface FenceBlock {
+  openIndex: number;
+  closeIndex: number;
+  info: string;
+}
+
+function findFenceBlocks(lines: string[]): FenceBlock[] {
+  const blocks: FenceBlock[] = [];
+  let openIndex = -1;
+  let openInfo = "";
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (!trimmed.startsWith("```")) continue;
+    const info = trimmed.slice(3).trim();
+    if (openIndex === -1) {
+      openIndex = i;
+      openInfo = info;
+    } else if (info === "") {
+      blocks.push({ openIndex, closeIndex: i, info: openInfo });
+      openIndex = -1;
+      openInfo = "";
+    }
+    // else: non-empty info while already inside a fence — not a valid
+    // closer, leave it as literal content of the open block.
+  }
+  return blocks;
+}
+
+// Agents routinely wrap part or all of a response in a bare ``` or
+// ```markdown block, sometimes several times in the same document (each
+// command in a chained phase like backlog's *breakdown → *estimate →
+// *staffing produces its own response, and each one may carry its own false
+// wrapper). None of these personas ever intend a bare/markdown/md-tagged
+// fence as real content — genuine code is always tagged with something
+// specific (```mermaid being the only case these documents use) — so every
+// fence block whose info string is empty, "markdown" or "md" is a false
+// wrapper: strip just its two boundary lines and leave the content in place
+// to be re-parsed as ordinary markdown. That re-parse is what lets a
+// wrapper's own nested ```mermaid block (previously swallowed as literal
+// text because CommonMark fences don't actually nest) surface as a proper,
+// separately-fenced top-level block afterwards.
 //
-// Detected by POSITION, not by counting fence markers: if the first
-// non-blank line of the document opens a fence and the last non-blank line
-// closes one, that pair is the outer wrapper — strip only those two boundary
-// lines and keep everything between them untouched, including any fences
-// nested inside (e.g. multiple ```mermaid diagrams in the architecture
-// phase, or a Mermaid graph inside a wrapped backlog). An earlier version
-// required exactly one fence pair in the whole document, which meant any
-// response with legitimate inner fences never unwrapped at all — the
-// architect and backlog outputs (which always contain Mermaid blocks) were
-// rendering as one giant unstyled code block end to end. None of these
-// personas legitimately start a document with a code fence as its first
-// line, so "first line opens, last line closes" is a safe signal without
-// needing to inspect what's in between.
+// Runs to a fixed point (bounded) because unwrapping one false wrapper can
+// expose another one that was previously buried inside it.
 export function unwrapOuterCodeFence(markdown: string): string {
-  const lines = markdown.split("\n");
+  let lines = markdown.split("\n");
 
-  let start = 0;
-  while (start < lines.length && lines[start].trim() === "") start++;
-  let end = lines.length - 1;
-  while (end >= 0 && lines[end].trim() === "") end--;
+  for (let pass = 0; pass < 5; pass++) {
+    const blocks = findFenceBlocks(lines);
+    const wrapper = blocks.find((b) => /^(markdown|md)?$/i.test(b.info));
+    if (!wrapper) break;
 
-  if (start >= end) return markdown;
-  if (!/^```[a-z]*\s*$/i.test(lines[start].trim())) return markdown;
-  if (!/^```\s*$/.test(lines[end].trim())) return markdown;
+    lines = [
+      ...lines.slice(0, wrapper.openIndex),
+      ...lines.slice(wrapper.openIndex + 1, wrapper.closeIndex),
+      ...lines.slice(wrapper.closeIndex + 1),
+    ];
+  }
 
-  const inner = lines.slice(start + 1, end).join("\n").trim();
-  return inner.length > 0 ? inner : markdown;
+  return lines.join("\n");
 }
 
 const UNORDERED_ITEM = /^(\s*)[-*]\s+(.*)$/;
@@ -104,17 +140,25 @@ export function markdownToHtml(markdown: string): string {
     const line = rawLine.trimEnd();
 
     if (line.trim().startsWith("```")) {
-      if (inCodeBlock) {
+      // A closing fence carries no info string (CommonMark) — a line like
+      // ```mermaid encountered while already inside a block is not a valid
+      // closer, so it falls through to the inCodeBlock branch below and is
+      // rendered as literal content instead of prematurely ending the block.
+      const fenceInfo = line.trim().slice(3).trim();
+      if (inCodeBlock && fenceInfo === "") {
         html.push("</code></pre>");
         inCodeBlock = false;
-      } else {
+        i++;
+        continue;
+      }
+      if (!inCodeBlock) {
         flushParagraph();
         closeAllLists();
         html.push("<pre><code>");
         inCodeBlock = true;
+        i++;
+        continue;
       }
-      i++;
-      continue;
     }
     if (inCodeBlock) {
       html.push(escapeHtml(rawLine) + "\n");

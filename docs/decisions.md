@@ -851,3 +851,55 @@ modelo, não de template:**
   uma limitação real do modelo, não um bug de código — registrado aqui, não
   corrigido, porque não há ajuste de parser que resolva um modelo repetindo
   conteúdo por conta própria.
+
+---
+
+## Correção real do pareamento de fences (não só o wrapper externo)
+
+A correção anterior ("Bug real no desembrulho de fence") resolveu Architecture
+mas **piorou Backlog** — reportado pelo usuário ("temos muitos erros na
+section backlog agora") logo após o primeiro fix. Investigação mostrou que a
+correção anterior era só parcialmente certa: ela detectava um wrapper externo
+pela posição (primeira/última linha), mas o Backlog concatena 3 respostas
+separadas do modelo (`*breakdown → *estimate → *staffing`), e só a primeira
+tinha exatamente esse formato — as outras ficavam soltas no meio do
+documento, fora do alcance da heurística posicional.
+
+**Causa raiz mais profunda, comum aos dois bugs:** o loop principal do parser
+(`markdownToHtml`) tratava **qualquer** linha começando com `\`\`\`` como uma
+alternância abre/fecha, sem checar a regra real do CommonMark: um fechamento
+válido não pode ter "info string" (texto depois dos backticks). Uma linha
+como `\`\`\`mermaid` encontrada enquanto já se está dentro de um bloco **não
+fecha nada** — ela é conteúdo literal do bloco aberto. Sem essa regra, o
+parser pareava fences errados entre si sempre que havia mais de um par no
+documento (ex.: um wrapper `\`\`\`markdown` externo com um `\`\`\`mermaid`
+genuíno dentro), embaralhando quais trechos viravam código vs. texto normal.
+
+**Correção definitiva, em duas partes:**
+1. `unwrapOuterCodeFence` reescrita para parear fences corretamente (respeitando
+   a regra do CommonMark) e remover **todo** bloco cuja linguagem seja vazia,
+   `markdown` ou `md` — onde quer que apareça no documento, não só nas bordas.
+   Roda em passadas repetidas (até 5), porque desembrulhar um wrapper pode
+   revelar outro que estava enterrado dentro dele.
+2. O loop principal de `markdownToHtml` também passou a respeitar a mesma
+   regra (fechamento só é válido sem info string), como defesa em profundidade
+   — importante porque as personas continuam emitindo fences reais
+   (`\`\`\`mermaid`) que precisam ser pareados corretamente mesmo depois do
+   desembrulho.
+
+**Validação com os dados reais do run reportado:** Backlog foi de 4 para 26
+headings reais (antes: só a cauda do documento — Effort Estimation/Staffing
+Plan — renderizava; agora todos os Epics/Stories renderizam com listas e
+negrito). Architecture manteve-se correto.
+
+**Limite genuíno encontrado durante a validação, não corrigido:** nesse
+mesmo run, o modelo **esqueceu de fechar** o primeiro diagrama Mermaid
+("Context Diagram") — abre `\`\`\`mermaid` e nunca fecha. Por semântica real
+de fence, isso funde esse diagrama com o próximo até encontrar o primeiro
+fechamento válido (o fechamento do segundo diagrama). O parser está correto
+ao tratar isso assim — não existe heurística segura para "adivinhar" onde um
+fence deveria ter fechado sem arriscar corromper blocos de código genuínos em
+outros documentos. Efeito prático: uma seção pontual funde duas linhas de
+prosa dentro da caixa de código do diagrama, tudo ainda legível, sem quebrar
+o resto do relatório. Mais um caso de limitação do modelo gratuito, como o
+usuário já suspeitava.
