@@ -179,8 +179,8 @@ rustc --version   # confirms the toolchain is on PATH
 ### 1. Clone and install dependencies
 
 ```bash
-git clone https://github.com/juliopessan/DPABB-Framework-Desktop.git
-cd DPABB-Framework-Desktop
+git clone https://github.com/juliopessan/DABBA-STUDIO.git
+cd DABBA-STUDIO
 npm install   # installs all workspaces (agent-server, gui, desktop-shell)
 ```
 
