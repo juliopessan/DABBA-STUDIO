@@ -9,8 +9,70 @@ const PHASE_LABELS: Record<string, string> = {
   "business-case": "Business Case",
 };
 
+// Mirrors the persona names in agent-server/personas/*.md — kept as a small
+// static map here rather than threaded through from the loader, since the
+// report only ever credits these five built-in agents. Keyed by agent_id
+// (architect), not phase id (architecture) — those two differ for exactly
+// this one phase, which is what made the first version of this map credit
+// "architect" instead of "Tony" in the footer.
+const AGENT_NAMES: Record<string, string> = {
+  discovery: "Natasha",
+  prd: "Vision",
+  architect: "Tony",
+  backlog: "Steve",
+  "business-case": "Pepper",
+};
+
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function formatDuration(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return m > 0 ? `${m}m ${String(s).padStart(2, "0")}s` : `${s}s`;
+}
+
+/**
+ * Builds the personalised crew footer: which agents actually touched this
+ * run (not a static list of all five — a partial or single-agent run should
+ * only credit who was really there), the project name, and the elapsed time
+ * from the run's start to its last artifact.
+ */
+function buildFooter(run: PipelineRun, artifacts: PhaseArtifact[]): string {
+  const crew: string[] = [];
+  for (const a of artifacts) {
+    const name = AGENT_NAMES[a.agent_id] ?? a.agent_id;
+    if (!crew.includes(name)) crew.push(name);
+  }
+  const crewLine =
+    crew.length === 0
+      ? "No agent has run yet"
+      : crew.length === 1
+        ? crew[0]
+        : `${crew.slice(0, -1).join(", ")} and ${crew[crew.length - 1]}`;
+
+  const elapsedLine = (() => {
+    if (artifacts.length === 0) return null;
+    const start = Date.parse(run.created_at);
+    const end = Date.parse(artifacts[artifacts.length - 1].created_at);
+    if (Number.isNaN(start) || Number.isNaN(end)) return null;
+    return `${artifacts.length} phase${artifacts.length === 1 ? "" : "s"} · ${formatDuration(end - start)} elapsed`;
+  })();
+
+  return `
+    <footer class="report-footer">
+      <div class="crew-mark" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <p class="crew-eyebrow">Prepared for</p>
+      <h2 class="crew-project">${escapeHtml(run.project_name)}</h2>
+      <p class="crew-line">Assembled by <strong>${escapeHtml(crewLine)}</strong>${
+        elapsedLine ? ` — ${elapsedLine}` : ""
+      }</p>
+      <p class="crew-footnote">run ${escapeHtml(run.id)} · DPABB Framework / DABBA Studio</p>
+    </footer>`;
 }
 
 export function buildConsolidatedReport(run: PipelineRun, artifacts: PhaseArtifact[]): string {
@@ -140,6 +202,42 @@ section.phase {
   font-size: 13px;
 }
 .phase-content code { font-family: ui-monospace, monospace; font-size: 0.92em; }
+
+.report-footer {
+  background: var(--ink);
+  color: var(--bg);
+  border-radius: 3px;
+  padding: 40px 36px;
+  margin-top: 16px;
+}
+.crew-mark { display: grid; grid-template-columns: repeat(2, 14px); grid-template-rows: repeat(2, 14px); gap: 3px; margin-bottom: 24px; }
+.crew-mark span:nth-child(1) { background: var(--bg); }
+.crew-mark span:nth-child(2) { background: var(--clay); }
+.crew-mark span:nth-child(3) { background: var(--clay); }
+.crew-mark span:nth-child(4) { background: var(--bg); }
+.crew-eyebrow {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  font-size: 11px;
+  color: rgba(242, 239, 232, 0.55);
+  margin: 0 0 10px;
+}
+.crew-project {
+  font-family: var(--display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-size: 28px;
+  margin: 0 0 16px;
+}
+.crew-line { font-size: 14px; color: rgba(242, 239, 232, 0.85); margin: 0 0 4px; }
+.crew-line strong { color: var(--clay); font-weight: 600; }
+.crew-footnote {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: rgba(242, 239, 232, 0.45);
+  margin: 16px 0 0;
+}
 </style>
 </head>
 <body>
@@ -156,6 +254,8 @@ section.phase {
     </nav>
 
     ${sections}
+
+    ${buildFooter(run, artifacts)}
   </div>
 </body>
 </html>`;
