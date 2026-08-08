@@ -68,7 +68,7 @@ export default function App() {
         }}
       >
         <div>
-          <div className="dabba-eyebrow">DPABB Framework / DABBA Studio</div>
+          <div className="dabba-eyebrow">DABBA Studio</div>
           <h1 className="dabba-display" style={{ fontSize: 52, margin: "14px 0 0" }}>
             Requirements in.
             <br />
@@ -198,6 +198,38 @@ export default function App() {
           {agent && <CommandPanel key={agent.id} agent={agent} />}
         </AnimatePresence>
       </div>
+
+      <motion.footer
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, duration: 0.5 }}
+        style={{
+          marginTop: 72,
+          paddingTop: 32,
+          borderTop: "1px solid var(--dabba-border)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 20,
+          flexWrap: "wrap",
+        }}
+      >
+        <p
+          className="dabba-display"
+          style={{
+            fontSize: 20,
+            letterSpacing: "-0.01em",
+            margin: 0,
+            maxWidth: 560,
+          }}
+        >
+          Five specialists. Zero handoffs. One document your next client
+          actually reads.
+        </p>
+        <div className="dabba-eyebrow" style={{ flexShrink: 0 }}>
+          DABBA Studio
+        </div>
+      </motion.footer>
     </main>
   );
 }

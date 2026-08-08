@@ -71,7 +71,8 @@ function buildFooter(run: PipelineRun, artifacts: PhaseArtifact[]): string {
       <p class="crew-line">Assembled by <strong>${escapeHtml(crewLine)}</strong>${
         elapsedLine ? ` — ${elapsedLine}` : ""
       }</p>
-      <p class="crew-footnote">run ${escapeHtml(run.id)} · DPABB Framework / DABBA Studio</p>
+      <p class="crew-pitch">Five specialists. Zero handoffs. One document your next client actually reads.</p>
+      <p class="crew-footnote">run ${escapeHtml(run.id)} · DABBA Studio</p>
     </footer>`;
 }
 
@@ -232,6 +233,16 @@ section.phase {
 }
 .crew-line { font-size: 14px; color: rgba(242, 239, 232, 0.85); margin: 0 0 4px; }
 .crew-line strong { color: var(--clay); font-weight: 600; }
+.crew-pitch {
+  font-family: var(--display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-size: 20px;
+  line-height: 1.3;
+  color: var(--bg);
+  max-width: 480px;
+  margin: 20px 0 0;
+}
 .crew-footnote {
   font-family: var(--mono);
   font-size: 11.5px;
