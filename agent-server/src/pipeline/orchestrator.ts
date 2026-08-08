@@ -61,6 +61,51 @@ export const PIPELINE_STEPS = [
   { phase: "business-case", agentId: "business-case", commands: ["*analyze"] },
 ] as const;
 
+// A phase that chains commands asks each one for a distinct section, and the
+// personas say so explicitly — but a small free model routinely ignores that
+// and re-emits the whole document template on every command (measured: one
+// backlog artifact carried two "Effort Estimation" sections quoting 84 and 107
+// total points, and three different "Staffing Plans"). Contradictory numbers
+// under the same heading are worse than a missing section: the reader has no
+// way to tell which is authoritative. The prompt asks; this guarantees.
+//
+// The LAST occurrence wins, because that is the output of the command that
+// actually owns the section (*estimate's estimation is more considered than
+// the one *breakdown tacked on). Dropping the earlier copies in place also
+// leaves the surviving sections in a sensible order, since a phase's dedicated
+// commands run after the broad one.
+//
+// Only H2 (`## `) headings are compared: they are the section boundaries these
+// personas use, while H3 sub-headings ("Key Considerations") legitimately
+// repeat under different parents.
+function dedupeRepeatedSections(markdown: string): string {
+  const lines = markdown.split("\n");
+
+  // A `## ` line inside a fenced block is code, not a heading.
+  const headingAt: string[] = [];
+  let inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith("```")) inFence = !inFence;
+    const match = !inFence && /^##\s+(.*)$/.exec(trimmed);
+    headingAt[i] = match ? match[1].trim().toLowerCase().replace(/\s+/g, " ") : "";
+  }
+
+  const lastIndexOf = new Map<string, number>();
+  headingAt.forEach((h, i) => {
+    if (h) lastIndexOf.set(h, i);
+  });
+
+  const kept: string[] = [];
+  let dropping = false;
+  for (let i = 0; i < lines.length; i++) {
+    const heading = headingAt[i];
+    if (heading) dropping = lastIndexOf.get(heading) !== i;
+    if (!dropping) kept.push(lines[i]);
+  }
+  return kept.join("\n");
+}
+
 // Creates the run and kicks off processing in the background (it does not
 // block the HTTP response) — the client follows along by polling
 // GET /pipeline/:id.
@@ -111,7 +156,13 @@ async function processPipeline(runId: string, rfpText: string): Promise<void> {
       lastModel = result.model;
     }
 
-    const combinedOutput = sections.join("\n\n");
+    // Unwrap a SECOND time, now on the joined text. Each section was already
+    // unwrapped on its own, but a fence the model left unclosed in one section
+    // can pair with a stray one from the next after concatenation, forming a
+    // phantom code block spanning the seam — which then hides every heading
+    // inside it from the de-duplication below (and from anything else that
+    // reads structure).
+    const combinedOutput = dedupeRepeatedSections(unwrapOuterCodeFence(sections.join("\n\n")));
     saveArtifact(runId, step.phase, step.agentId, step.commands.join(" → "), combinedOutput, lastProvider, lastModel);
     carriedInput = combinedOutput;
   }

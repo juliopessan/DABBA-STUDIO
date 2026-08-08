@@ -1065,3 +1065,89 @@ as 5 personas. Diferente da correção anterior (fusão de 2 linhas em 1
 diagrama), aqui a heurística é justificada porque o "unclosed fence" real
 estava causando dano medido e recorrente (não um caso isolado), não porque
 a barra de segurança foi rebaixada.
+
+---
+
+## Emojis e erros de conteúdo no relatório final
+
+**Contexto:** usuário reportou emojis e "erros" no `report.html`. A auditoria do
+run reportado (`9419b1c9`) achou 5 defeitos distintos, de gravidade bem
+diferente entre si.
+
+### 1. Emojis (pedido explícito)
+
+9 emojis (✅ ⚠️ 📌) espalhados por PRD, Architecture e Backlog, sobretudo em
+seções de checklist/validação. Corrigido em **duas camadas**, mesmo padrão já
+adotado no projeto (prompt previne, código garante):
+
+- **Prevenção:** novo `FORMATTING_RULE` global em `llm/provider.ts`, aplicado a
+  toda chamada junto do `LANGUAGE_RULE`. Ficou no provider e não nas 5 personas
+  porque o defeito aparecia em todas as fases — uma fonte só, não cinco cópias.
+- **Garantia:** `stripEmoji` em `markdown.ts` usando a propriedade Unicode
+  `\p{Extended_Pictographic}`, que é exatamente "emoji pictográfico" — remove
+  ✅⚠️📌❌🚀 e **não** toca em →, ✓, •, — nem símbolos de moeda, todos com uso
+  legítimo nesses documentos (verificado caso a caso antes de escolher).
+
+**Regressão pega na validação:** a primeira versão colapsava espaços
+duplicados globalmente para limpar o espaço órfão do emoji — o que achatou a
+indentação dentro dos blocos Mermaid (`    Start` virou ` Start`). Corrigido
+para consumir só o espaço adjacente ao emoji (`EMOJI+[ \t]*`), deixando a
+indentação do resto do documento intacta.
+
+### 2. Duplicação com números contraditórios (o defeito mais grave)
+
+O Backlog trazia **duas** seções "Effort Estimation" (84 pts e 107 pts) e
+**três** "Staffing Plans". Para o leitor não há como saber qual vale — pior que
+uma seção faltando.
+
+**Causa raiz 1 — contradição dentro da própria persona.** `backlog.md` dizia na
+linha 138 que Effort/Staffing são produzidos por `*estimate`/`*staffing` e
+**não** por `*breakdown`, e na linha 395 o oposto ("são obrigatórios em toda
+execução de `*breakdown`"). O modelo obedecia as duas.
+
+**Causa raiz 2 — o template "Backlog Structure".** Mostrava o documento
+consolidado inteiro num único bloco, com `## Effort Estimation` e
+`## Staffing Plan` visíveis. Mesmo anotado com `[… output of *estimate …]`, o
+modelo reproduzia o template todo no `*breakdown`. Reescrito em blocos
+separados, cada um rotulado com o comando que o possui.
+
+**Ainda insuficiente — a garantia determinística.** Testado com o comando
+isolado após as duas correções de prompt: o nemotron-nano-9b **continuou**
+emitindo as seções. Um modelo gratuito de 9B não obedece instrução de escopo de
+forma confiável, então a correção real é `dedupeRepeatedSections` no
+`orchestrator.ts`: ao concatenar os comandos de uma fase, títulos H2 repetidos
+são reduzidos à **última** ocorrência — a do comando que de fato possui a seção
+(a estimativa do `*estimate` é mais elaborada que a que o `*breakdown` anexou).
+Só H2 é comparado; H3 ("Key Considerations") repete legitimamente sob pais
+diferentes.
+
+### 3. Fences fantasma na emenda entre comandos
+
+Ao implementar a dedup ela não removia nada, e o motivo revelou um bug maior:
+`unwrapOuterCodeFence` rodava **por seção**, então um fence deixado em aberto
+pelo modelo numa seção pareava com outro solto da seção seguinte **depois** da
+concatenação, formando um bloco de código fantasma cruzando a emenda (medido:
+linhas 260–341 do artefato, escondendo os títulos duplicados de qualquer
+análise estrutural). Corrigido desembrulhando **também** o texto já combinado,
+antes da dedup.
+
+### 4 e 5. Escapes e LaTeX vazando
+
+`Command: \*phase-b` (escape de markdown literal) e `$\rightarrow$` (LaTeX, que
+o relatório não renderiza) apareciam crus. Corrigidos em `inline()`
+(des-escapa pontuação de markdown, rodando **depois** das passadas de ênfase
+para não entregar o asterisco solto ao regex de itálico) e via
+`LATEX_LITERALS`, um mapa de comandos nomeados. Deliberadamente **não** é uma
+regra genérica "`$...$` é matemática": isso casaria com as tabelas de custo
+("$225,600 ... $120/hour") e apagaria os valores.
+
+**Validação (run reportado, antes → depois):** emojis 9 → 0; LaTeX e escapes
+restantes 0; Backlog 442 → 381 linhas com Effort Estimation 2 → 1 (mantida a
+de 107 pts, do `*estimate`) e Staffing Plan 3 → 1; os 6 Epics e 14 Stories
+preservados; 26 tabelas e 10 diagramas Mermaid intactos. A dedup foi rodada
+contra as 5 fases de 2 runs distintos e só alterou a fase que de fato tinha
+duplicação — nenhum falso positivo.
+
+**Nota:** o rodapé desse run ainda mostrava "DPABB Framework / DABBA Studio"
+apenas porque o run precedeu o commit `55b9f2d`; regenerado, já sai só
+"DABBA Studio".

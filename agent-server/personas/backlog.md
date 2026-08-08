@@ -336,6 +336,15 @@ Before calling `*breakdown`, `*estimate`, `*staffing`, or `*exit`, confirm:
 
 ## Backlog Structure
 
+The blocks below are the shape of the **final consolidated `backlog.md`**, which
+is assembled from several commands. Each block is labelled with the one command
+that owns it — emit **only** the block belonging to the command you were asked
+to run, and never the whole document at once. Producing another command's block
+duplicates that heading in the final document with a second, conflicting set of
+numbers.
+
+### Owned by `*breakdown` — Epics and Stories only
+
 ```markdown
 ## Epic EPIC-01: [Name]
 **Goal:** ...
@@ -355,11 +364,16 @@ Before calling `*breakdown`, `*estimate`, `*staffing`, or `*exit`, confirm:
 **Dependencies:** —
 **Traceability:** FR-001
 
-[… repeat for each Epic and Story — output of *breakdown …]
+[… repeat for each Epic and Story …]
+```
 
+Stop there for `*breakdown`. Do not append an Effort Estimation, a Staffing
+Plan or a Dependency Graph — separate commands produce those.
+
+### Owned by `*estimate` — this section only
+
+```markdown
 ## Effort Estimation
-
-[… output of *estimate …]
 
 | Priority | Points | % of total |
 |----------|-------:|-----------:|
@@ -372,10 +386,12 @@ Before calling `*breakdown`, `*estimate`, `*staffing`, or `*exit`, confirm:
 - **Sprints required:** ⌈Total pts / velocity⌉
 - **Estimated timeline:** N sprints × sprint length (e.g. 2 weeks)
 - **Milestones:** the sprint in which each release/MVP is ready
+```
 
+### Owned by `*staffing` — this section only
+
+```markdown
 ## Staffing Plan
-
-[… output of *staffing …]
 
 | Role | Headcount | Allocation | Duration | Rationale |
 |------|----------:|-----------:|----------|-----------|
@@ -392,7 +408,17 @@ Before calling `*breakdown`, `*estimate`, `*staffing`, or `*exit`, confirm:
 ## Output Formatting Rules
 
 - **Never wrap the whole response in a single code block** (a ` ```markdown … ``` ` fence covering the entire document). Emit markdown directly — headers, tables and lists must be real markdown, not text inside a fence. Code fences (` ``` `) are reserved for genuine code/config snippets, not for the document as a whole.
-- **Effort Estimation and the Staffing Plan are mandatory** on every `*breakdown` run — they are neither optional nor deferrable to a separate command.
+- **Produce only the section the current command asks for.** `*breakdown`
+  emits Epics/Stories and nothing else — not the Effort Estimation, not the
+  Staffing Plan, not the Dependency Graph. Those belong to `*estimate`,
+  `*staffing` and `*dependencies` respectively, and a chained pipeline runs
+  them as separate commands. Re-emitting a section another command owns
+  produces the same heading twice in the consolidated document, with two
+  different sets of numbers — a contradiction the reader has no way to
+  resolve.
+- **Do not use emoji** anywhere in the output (no ✅, ⚠️, ❌, 📌 and so on).
+  These are client-facing deliverables — mark status in words ("Validated",
+  "Gap", "Blocked"), never with decorative symbols.
 
 ## Story Sizing (T-shirt → Story Points)
 

@@ -29,6 +29,24 @@ const LANGUAGE_RULE = `OUTPUT LANGUAGE — write every artifact in English (EN-U
 
 `;
 
+// Formatting defects observed in real runs across every phase, so the rule is
+// pinned globally here rather than repeated in each persona file. Emoji status
+// markers (✅/⚠️) were the most pervasive: they read as informal in a document
+// that goes to a client, and the model reaches for them by default in
+// checklists and validation sections. The escaping and LaTeX clauses cover
+// literal "\\*estimate" and "$\\rightarrow$" leaking into the rendered HTML,
+// which has no LaTeX renderer.
+const FORMATTING_RULE = `OUTPUT FORMATTING — these are client-facing deliverables rendered as HTML.
+
+- Never use emoji or decorative symbols (no ✅, ⚠️, ❌, 📌, 🚀 and so on). State status in words instead: "Validated", "Gap", "Blocked", "Covered".
+- Never use LaTeX or math notation ($\\rightarrow$, \\(x\\)). Write the plain character: an arrow is "->" or "→".
+- Do not backslash-escape markdown characters (write *estimate, not \\*estimate).
+- Produce only the section the current command asks for. Re-emitting a section that another command owns puts the same heading twice in the final document with two different sets of numbers.
+
+---
+
+`;
+
 export interface RunResult {
   mode: "live" | "dry-run";
   provider?: "anthropic" | "openrouter";
@@ -88,10 +106,11 @@ async function runOpenRouter(apiKey: string, systemPrompt: string, userMessage: 
 
 export async function runAgentCommand(req: RunRequest): Promise<RunResult> {
   const userMessage = buildUserMessage(req.command, req.input);
-  // The language rule applies to every call, not just pipeline runs — a single
-  // command executed by hand produces a client-facing artifact too.
+  // The language and formatting rules apply to every call, not just pipeline
+  // runs — a single command executed by hand produces a client-facing artifact
+  // too.
   const systemPrompt =
-    LANGUAGE_RULE + (req.autoMode ? AUTO_MODE_PREFIX + req.systemPrompt : req.systemPrompt);
+    LANGUAGE_RULE + FORMATTING_RULE + (req.autoMode ? AUTO_MODE_PREFIX + req.systemPrompt : req.systemPrompt);
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const anthropicKey = process.env.DABBA_LLM_API_KEY;
   const provider = process.env.DABBA_LLM_PROVIDER ?? (openRouterKey ? "openrouter" : anthropicKey ? "anthropic" : undefined);

@@ -5,11 +5,52 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+// The personas are instructed not to emit emoji (see FORMATTING_RULE in
+// llm/provider.ts), but a free model reaches for ✅/⚠️ in checklists often
+// enough that the rendered deliverable needs a deterministic guarantee, not
+// just a prompt asking nicely. Extended_Pictographic is the Unicode property
+// that means "emoji pictograph" precisely — it matches ✅⚠️📌❌🚀 while leaving
+// →, ✓, •, — and currency symbols alone, all of which appear legitimately in
+// these documents. FE0F (variation selector) and the skin-tone modifiers are
+// stripped alongside so no orphan combining marks survive.
+// Each run also eats the spaces immediately trailing the emoji, so "✅ Done"
+// becomes "Done" rather than " Done" — a leading space would break the
+// heading and list patterns below, which anchor on the start of the line.
+// Only the adjacent whitespace is touched: collapsing runs of spaces
+// document-wide would flatten the indentation inside mermaid blocks.
+const EMOJI = /[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}️‍]+[ \t]*/gu;
+
+function stripEmoji(text: string): string {
+  return text.replace(EMOJI, "");
+}
+
+// Models sometimes reach for LaTeX in prose (mostly inside flowchart labels).
+// The report has no math renderer, so "$\rightarrow$" would show verbatim.
+// Only these named commands are translated — deliberately NOT a general
+// "$...$ is math" rule, which would corrupt the cost tables ("$225,600 ...
+// $120/hour" would match as a math span and vanish).
+const LATEX_LITERALS: Record<string, string> = {
+  rightarrow: "→", to: "→", leftarrow: "←", leftrightarrow: "↔",
+  Rightarrow: "⇒", Leftarrow: "⇐", times: "×", div: "÷",
+  leq: "≤", geq: "≥", neq: "≠", approx: "≈", pm: "±",
+};
+
+function replaceLatex(text: string): string {
+  return text.replace(/\$\\([a-zA-Z]+)\$/g, (whole, name: string) =>
+    Object.prototype.hasOwnProperty.call(LATEX_LITERALS, name) ? LATEX_LITERALS[name] : whole
+  );
+}
+
 function inline(text: string): string {
   let out = escapeHtml(text);
   out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
   out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+  // Unescape backslash-escaped markdown punctuation LAST, after the emphasis
+  // passes have run — a model writing "\*estimate" means the literal text
+  // "*estimate" (it is escaping a command name), and doing this earlier would
+  // hand that bare asterisk to the emphasis regex instead.
+  out = out.replace(/\\([\\`*_{}\[\]()#+\-.!~|])/g, "$1");
   return out;
 }
 
@@ -144,7 +185,12 @@ interface ListFrame {
 // code, code blocks, GFM tables, ordered and unordered lists with
 // indentation-based nesting, and paragraphs.
 export function markdownToHtml(markdown: string): string {
-  const lines = unwrapOuterCodeFence(markdown).split("\n");
+  // Both passes run on the whole document, before parsing and before the fence
+  // logic — an emoji sitting at the start of a heading or list item would
+  // otherwise shift the line and defeat the anchored patterns that detect
+  // them. Code blocks are cleaned too: a mermaid diagram has no more business
+  // carrying an emoji label than the prose does.
+  const lines = replaceLatex(stripEmoji(unwrapOuterCodeFence(markdown))).split("\n");
   const html: string[] = [];
   let inCodeBlock = false;
   let paragraph: string[] = [];
