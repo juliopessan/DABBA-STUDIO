@@ -13,6 +13,25 @@ function inline(text: string): string {
   return out;
 }
 
+// Some models occasionally hallucinate a bogus closing marker that LOOKS
+// like a fence but isn't one — e.g. a stray ```<next_steps> or ```<status>
+// line with an angle-bracket "tag" as its info string. No legitimate fence
+// info string in these documents (or in CommonMark generally) is wrapped in
+// angle brackets — real ones are bare words (mermaid, table, confirmation).
+// Left in place, one of these gets treated as a real (if unintentional)
+// fence opener and its matching closer often turns out to be the closing
+// ``` of a genuine, unrelated ```mermaid block nested a few lines later —
+// fences don't actually nest, so that mismatch swallows the diagram AND
+// everything up to it as literal text (measured in production: over 3000
+// characters of real headings and tables absorbed into one <pre> block).
+// Since these lines are never valid content on their own, the safe fix is to
+// drop them before fence-pairing ever runs, rather than try to pair them.
+const FAKE_TAG_FENCE = /^```\s*<\/?[\w-]+>\s*$/;
+
+function stripFakeTagFences(lines: string[]): string[] {
+  return lines.filter((l) => !FAKE_TAG_FENCE.test(l.trim()));
+}
+
 // A fence's info string (the text right after the opening backticks, e.g.
 // "mermaid" in ```mermaid) is what distinguishes an opener from a closer per
 // CommonMark: a closing fence must carry NO info string. A line like
@@ -53,29 +72,47 @@ function findFenceBlocks(lines: string[]): FenceBlock[] {
 // ```markdown block, sometimes several times in the same document (each
 // command in a chained phase like backlog's *breakdown → *estimate →
 // *staffing produces its own response, and each one may carry its own false
-// wrapper). None of these personas ever intend a bare/markdown/md-tagged
-// fence as real content — genuine code is always tagged with something
-// specific (```mermaid being the only case these documents use) — so every
-// fence block whose info string is empty, "markdown" or "md" is a false
-// wrapper: strip just its two boundary lines and leave the content in place
-// to be re-parsed as ordinary markdown. That re-parse is what lets a
-// wrapper's own nested ```mermaid block (previously swallowed as literal
-// text because CommonMark fences don't actually nest) surface as a proper,
-// separately-fenced top-level block afterwards.
+// wrapper). "mermaid" is the ONLY fence language these personas ever
+// intend as genuine code/diagram source (the report has no client-side
+// mermaid.js — a mermaid fence is deliberately displayed as source text, not
+// rendered) — so this is an allowlist, not a blocklist: any fence whose info
+// string is not exactly "mermaid" is a false wrapper, whatever it says. That
+// covers the obvious cases (empty, "markdown", "md") but also a real failure
+// mode found in production reports: a model tagging a genuine GFM table as
+// ```table or ```confirmation, which must become a real <table>, not a
+// literal-text code box. Since "mermaid" is the only fence this app's
+// personas ever emit on purpose, anything else is presumptively noise: strip
+// just its two boundary lines and leave the content in place to be
+// re-parsed as ordinary markdown (tables become tables, prose becomes
+// prose). That re-parse is also what lets a wrapper's own nested ```mermaid
+// block (previously swallowed as literal text because CommonMark fences
+// don't actually nest) surface as a proper, separately-fenced top-level
+// block afterwards.
 //
 // Runs to a fixed point (bounded) because unwrapping one false wrapper can
 // expose another one that was previously buried inside it.
 export function unwrapOuterCodeFence(markdown: string): string {
-  let lines = markdown.split("\n");
+  let lines = stripFakeTagFences(markdown.split("\n"));
 
   for (let pass = 0; pass < 5; pass++) {
     const blocks = findFenceBlocks(lines);
-    const wrapper = blocks.find((b) => /^(markdown|md)?$/i.test(b.info));
+    // "table" is not a real Mermaid diagram type — a ```mermaid block whose
+    // first line is literally "table" is a model mislabeling a genuine GFM
+    // table (found in production, e.g. a "Build vs Buy Decisions" table
+    // emitted this way), not an actual diagram. Unwrap it like any other
+    // false wrapper — plus the "table" marker line itself, which carries no
+    // useful information — so the pipe rows re-parse as a real <table>
+    // instead of rendering as literal text in a code box.
+    const wrapper = blocks.find((b) => {
+      if (!/^mermaid$/i.test(b.info)) return true;
+      return lines[b.openIndex + 1]?.trim().toLowerCase() === "table";
+    });
     if (!wrapper) break;
+    const mislabeledTable = /^mermaid$/i.test(wrapper.info);
 
     lines = [
       ...lines.slice(0, wrapper.openIndex),
-      ...lines.slice(wrapper.openIndex + 1, wrapper.closeIndex),
+      ...lines.slice(wrapper.openIndex + 1 + (mislabeledTable ? 1 : 0), wrapper.closeIndex),
       ...lines.slice(wrapper.closeIndex + 1),
     ];
   }
@@ -160,6 +197,21 @@ export function markdownToHtml(markdown: string): string {
         continue;
       }
     }
+    // A model that forgets to close a ```mermaid fence before continuing
+    // with prose otherwise swallows everything after it — headings, real
+    // GFM tables, whole sections — as literal code text, until the next
+    // accidental bare ``` (measured in production: a whole Effort
+    // Estimation + Staffing Plan + Sprint 1 table trio absorbed this way). A
+    // bare `---` divider line is a safe implicit-close signal: every persona
+    // in this app uses it pervasively as a section separator, and it is
+    // never valid standalone Mermaid syntax (a real dash-edge always has
+    // node names attached, e.g. "A --- B", never a line of only dashes) —
+    // so it cannot appear here as genuine diagram content.
+    if (inCodeBlock && /^-{3,}$/.test(line.trim())) {
+      html.push("</code></pre>");
+      inCodeBlock = false;
+    }
+
     if (inCodeBlock) {
       html.push(escapeHtml(rawLine) + "\n");
       i++;

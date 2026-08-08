@@ -971,3 +971,97 @@ tipo de defeito genuíno de modelo já documentado acima (linhas malformadas
 tipo `` ```<next_steps> `` e `` `````` ``, não CommonMark válido), não uma
 regressão introduzida por este encadeamento. Confirmado inspecionando as
 linhas de fence brutas do artefato.
+
+---
+
+## Tabelas desconfiguradas em Architecture/Backlog/Business Case — os "backticks
+## soltos" da seção anterior eram maiores do que o estimado
+
+**Contexto:** o usuário reportou tabelas quebradas no relatório consolidado
+nas 3 fases finais. Investigação com dados reais (mesmo run de teste do
+enriquecimento de pipeline) achou que os "~12 backticks soltos, efeito
+cosmético pontual" documentados na seção anterior na verdade eram o SINTOMA
+de dois bugs de fence bem mais sérios — não um único caso isolado.
+
+**Bug 1 — fences com tag falsa em ângulos engolindo o documento inteiro.**
+O modelo às vezes fecha uma seção com uma tag hallucinada tipo
+`` ```<next_steps> `` ou `` ```<status> ``. Tratada como fence real (info
+não-vazio), ela abre um bloco de código que só fecha no próximo `` ``` ``
+solto encontrado — e como fences reais não aninham, se houver um
+`` ```mermaid ``...`` ``` `` legítimo no meio do caminho, o fechamento DELE é
+consumido como se fosse o fechamento da tag falsa, deixando o mermaid órfão e
+arrastando tudo entre eles (títulos, tabelas reais) para dentro de um único
+`<pre>`. Medido em produção: **3041 caracteres** de conteúdo real
+(Architecture, Phase D inteira) engolidos de uma vez.
+
+**Bug 2 — tabelas markdown genuínas rotuladas como `` ```table `` ou
+dentro de um `` ```mermaid `` mal-empregado.** O modelo escreve uma tabela
+real (`| Component | Decision | ... |`) mas embrulha em `` ```table `` (não é
+markdown/md/vazio, então a heurística antiga não desembrulhava) ou pior,
+dentro de `` ```mermaid `` seguido da palavra `table` — "table" não é um tipo
+de diagrama Mermaid válido, é o modelo confundindo os dois formatos. Como
+qualquer fence com info não-vazio virava bloco de código, o pipe-syntax da
+tabela era escapado e mostrado como texto monoespaçado cru em vez de virar
+`<table>`.
+
+**Bug 3 — mermaid genuíno sem fechamento, arrastando tabelas reais adiante.**
+Caso adicional, mais grave que o "merge de 2 linhas" documentado antes: um
+`` ```mermaid `` de dependency graph no Backlog nunca fechava (o modelo
+seguia direto para `**Notes:**` em prosa sem `` ``` ``). Sem um fechamento
+real próximo, o parser (corretamente, por semântica de fence) engolia tudo
+até o próximo `` ``` `` acidental — que no caso media **6819 caracteres** e
+incluía as tabelas de Effort Estimation, Staffing Plan e Sprint 1 inteiras.
+
+**Correções, todas em `agent-server/src/pipeline/markdown.ts`:**
+
+1. **`unwrapOuterCodeFence` virou allowlist, não blocklist.** Antes: só
+   desembrulhava fence com info vazio/`markdown`/`md`. Agora: `mermaid` é a
+   ÚNICA linguagem de fence que essas personas emitem de propósito (o
+   relatório não tem mermaid.js — um `` ```mermaid `` já é deliberadamente
+   mostrado como texto-fonte, não renderizado) — então qualquer fence cujo
+   info não seja exatamente `mermaid` é tratado como wrapper falso e
+   desembrulhado, reexpondo o conteúdo para ser reparseado como markdown
+   normal (tabelas viram `<table>`, prosa vira `<p>`). Resolve o Bug 2 para
+   o caso `` ```table ``.
+2. **`stripFakeTagFences` — nova função, roda antes de qualquer pareamento.**
+   Remove linhas que batem com `` ```<algo>  `` (tag entre ângulos) inteiras,
+   ANTES do algoritmo de pareamento de fences rodar — evita que elas sejam
+   tratadas como abertura/fechamento real e evita a colisão de pareamento com
+   fences legítimos aninhados. Resolve o Bug 1.
+3. **Detecção de `` ```mermaid `` mal-empregado como tabela.** Se a primeira
+   linha de conteúdo de um bloco `` ```mermaid `` for literalmente a palavra
+   `table`, trata como wrapper falso também (mesmo mecanismo do item 1) e
+   remove essa linha-marcador, não só as bordas do fence. Resolve o resto do
+   Bug 2.
+4. **Fechamento implícito por `---` no loop principal de render.** No
+   parser final (`markdownToHtml`), se uma linha `---` isolada (só traços,
+   nada mais) aparece enquanto um bloco de código está aberto, o parser fecha
+   o bloco ali mesmo antes de processar a linha como divisor normal — seguro
+   porque `---` isolado é convenção de separador de seção usada em toda a
+   documentação dessas personas e nunca é sintaxe Mermaid válida sozinha
+   (uma aresta real sempre tem nomes de nó nos dois lados, ex. `A --- B`).
+   Resolve o Bug 3.
+
+**Validação end-to-end** (mesmo run de teste, antes vs. depois desta
+correção, medido tanto via `markdownToHtml` isolado quanto no
+`report.html` renderizado de verdade no navegador):
+
+| Fase | Tabelas antes | Tabelas depois | Blocos `<pre>` quebrados antes | Depois |
+|---|---|---|---|---|
+| Architecture | 10-11 | **14** | 3 | **0** |
+| Backlog | 2 | **5** | 1 (6819 caracteres) | **0** |
+| Business Case | 5 | 5 | 0 | 0 |
+
+Business Case não tinha blocos quebrados neste run específico, mas contém o
+mesmo padrão de tags falsas (`` ```<confirmation> ``) — coberto pela mesma
+correção geral (Bug 1), não por um fix específico da fase.
+
+**Risco aceito, explicitamente avaliado:** a regra do `---` implícito (item 4)
+é a única heurística "adivinhando" uma intenção do modelo em vez de seguir
+CommonMark à risca — decidido como seguro porque `---` sozinho não tem
+nenhum uso legítimo dentro de um bloco de código Mermaid nestas documentos, e
+o padrão de usar `---` como separador de seção é 100% consistente em todas
+as 5 personas. Diferente da correção anterior (fusão de 2 linhas em 1
+diagrama), aqui a heurística é justificada porque o "unclosed fence" real
+estava causando dano medido e recorrente (não um caso isolado), não porque
+a barra de segurança foi rebaixada.
