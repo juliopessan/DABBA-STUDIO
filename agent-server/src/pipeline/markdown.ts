@@ -35,10 +35,20 @@ const LATEX_LITERALS: Record<string, string> = {
   leq: "≤", geq: "≥", neq: "≠", approx: "≈", pm: "±",
 };
 
+// Heavy dingbat arrows (➔ ➜ ➡ ⮕) are not emoji — Extended_Pictographic leaves
+// them alone, correctly, because the model uses them to mean "leads to"
+// ("GET /api/shipments ➔ returns JSON"). They render as chunky, decorative
+// glyphs though, so they are folded onto the plain → the rest of the document
+// already uses (and that the LaTeX map above produces), rather than stripped:
+// the arrow carries meaning, only its weight is wrong.
+const HEAVY_ARROWS = /[➔➜➞➡⮕]/g;
+
 function replaceLatex(text: string): string {
-  return text.replace(/\$\\([a-zA-Z]+)\$/g, (whole, name: string) =>
-    Object.prototype.hasOwnProperty.call(LATEX_LITERALS, name) ? LATEX_LITERALS[name] : whole
-  );
+  return text
+    .replace(/\$\\([a-zA-Z]+)\$/g, (whole, name: string) =>
+      Object.prototype.hasOwnProperty.call(LATEX_LITERALS, name) ? LATEX_LITERALS[name] : whole
+    )
+    .replace(HEAVY_ARROWS, "→");
 }
 
 function inline(text: string): string {
