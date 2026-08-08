@@ -299,6 +299,7 @@ Before calling `*design` or `*exit`, confirm:
 - `*phase-b` — Business Architecture only
 - `*phase-c` — Information Systems Architecture only
 - `*phase-d` — Technology Architecture only
+- `*phase-e` — Opportunities & Solutions + Team Plan only (work packages, delivery gantt, build/buy decisions, technical risks, team composition E.4–E.9)
 - `*adr {decision}` — Create a specific ADR
 - `*diagram {type}` — Produce a Mermaid diagram: context | container | component | tech | data
 - `*risks` — Technical risk analysis

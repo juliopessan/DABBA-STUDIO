@@ -12,16 +12,52 @@ import { OUTPUT_DIR } from "../appPaths.js";
 // phase runs the agent's generating command(s) and receives the previous
 // phase's artifact as its premise/context.
 //
-// Backlog chains 3 commands (not 1): free models tend to drop sections when a
-// single prompt asks for Epics + Effort Estimation + Staffing at once (tested:
-// nvidia/nemotron-nano-9b ignored the last two even with an explicit
-// instruction). Asking for each section as a separate, chained command is far
-// more reliable than one mega-prompt.
+// Every multi-command phase below follows the same rule, discovered with
+// Backlog: free models reliably drop sections when a single prompt asks for
+// several distinct deliverables at once (tested: nvidia/nemotron-nano-9b
+// ignored the last two of three sections even with an explicit instruction
+// to include them). Splitting into separate, chained commands — each asking
+// for ONE non-overlapping deliverable — is far more reliable than one
+// mega-prompt. Commands were only added to a chain when their scope is
+// disjoint from what an earlier command in the same phase already produces;
+// e.g. Architecture's `*design` alone was measured (across 3 real pipeline
+// runs) to produce 4-8 of the 11 Mermaid diagrams the framework requires —
+// splitting it into its 5 TOGAF sub-phases fixes the same drop-under-load
+// pattern Backlog had. Business Case's `*analyze` was NOT split: every run
+// measured already produced its full 10-section structure from one command,
+// so chaining more commands there would only add cost without fixing a real
+// gap — and its remaining commands (*roi, *costs, *risks, *alternatives,
+// *recommendation) each cover a section `*analyze` already includes,
+// so they'd risk duplicating content instead of adding it.
 export const PIPELINE_STEPS = [
-  { phase: "discovery", agentId: "discovery", commands: ["*start"] },
-  { phase: "prd", agentId: "prd", commands: ["*generate"] },
-  { phase: "architecture", agentId: "architect", commands: ["*design"] },
-  { phase: "backlog", agentId: "backlog", commands: ["*breakdown", "*estimate", "*staffing"] },
+  // *start alone produces an interview SCRIPT (questions with no answers) —
+  // there is no human to interview in an automated pipeline, so it left
+  // discovery-report.md with zero captured requirements in every run
+  // measured. *generate is the command whose own workflow (context →
+  // stakeholders → problems → constraints → assumptions/risks → report)
+  // self-answers those questions under AUTO_MODE_PREFIX and produces the
+  // actual report — *start is not called at all here.
+  { phase: "discovery", agentId: "discovery", commands: ["*generate"] },
+  // *trace cross-checks FR/NFR traceability against the discovery report —
+  // measured to matter: one real run had the backlog phase cite 9 FR IDs
+  // (FR-004..FR-012) that *generate's PRD never defined. *personas is
+  // skipped: `*generate`'s own PRD structure already includes a Personas
+  // section, so re-running it would duplicate rather than add.
+  { phase: "prd", agentId: "prd", commands: ["*generate", "*trace"] },
+  // Non-overlapping TOGAF phase split (see rationale above) instead of the
+  // single `*design` mega-command, plus `*review` (NFR-coverage check) as a
+  // final, disjoint QA pass.
+  {
+    phase: "architecture",
+    agentId: "architect",
+    commands: ["*phase-a", "*phase-b", "*phase-c", "*phase-d", "*phase-e", "*review"],
+  },
+  // *sprint (MVP scoping) and *trace (Stories → FR/NFR check) are genuinely
+  // new sections *breakdown/*estimate/*staffing don't produce. *prioritize
+  // and *dependencies are skipped: *breakdown's own story template already
+  // carries a Priority and a Dependencies field per story, so re-running
+  // them would restate rather than add.
+  { phase: "backlog", agentId: "backlog", commands: ["*breakdown", "*estimate", "*staffing", "*sprint", "*trace"] },
   { phase: "business-case", agentId: "business-case", commands: ["*analyze"] },
 ] as const;
 

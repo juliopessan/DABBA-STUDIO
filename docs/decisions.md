@@ -903,3 +903,71 @@ outros documentos. Efeito prático: uma seção pontual funde duas linhas de
 prosa dentro da caixa de código do diagrama, tudo ainda legível, sem quebrar
 o resto do relatório. Mais um caso de limitação do modelo gratuito, como o
 usuário já suspeitava.
+
+---
+
+## Pipeline enriquecido: fases mais completas (comparação com os agentes do framework)
+
+**Contexto:** análise profunda comparando as personas do DABBA
+(`agent-server/personas/*.md`) e o `orchestrator.ts` contra os agentes de
+referência do framework original (`DPABB-Framework/agents/*.md`), rodando 3
+execuções reais salvas no SQLite para medir o comportamento de fato (não só
+ler as personas). Achados:
+
+1. **Discovery rodava o comando errado.** `PIPELINE_STEPS` chamava `*start`
+   ("Begin a guided discovery interview") num pipeline 100% automático, sem
+   humano para responder — o artefato real virava um roteiro de perguntas
+   ("What specific gaps..."), com **zero requisitos capturados**, violando o
+   próprio checklist da persona ("at least 5 high-level requirements"). Todas
+   as fases seguintes herdavam essa premissa vazia.
+2. **Rastreabilidade (princípio nº1 do framework) não se sustentava em
+   nenhum dos 3 runs medidos.** Dois runs: o PRD definia FRs e o backlog
+   nunca os citava (0% de cobertura). Um run: o backlog citava 12 FR-IDs,
+   dos quais **9 eram inventados** (FR-004 a FR-012, nunca definidos no
+   PRD). Os comandos `*trace` (prd e backlog) existem exatamente para pegar
+   isso e nunca eram chamados.
+3. **Architecture entregava 4-8 dos 11 diagramas Mermaid exigidos pelo
+   `CLAUDE.md`**, chamando `*design` sozinho — o mesmo padrão de "mega-prompt
+   derruba seções" já visto e corrigido no Backlog (`*estimate`/`*staffing`).
+   ADRs oscilavam de 0 a 5 sem critério.
+4. ~60% do vocabulário de comandos das personas nunca era invocado pelo
+   orchestrator.
+
+**Correção — `agent-server/src/pipeline/orchestrator.ts`:** `PIPELINE_STEPS`
+reescrito fase a fase, aplicando a MESMA regra que já funcionava para
+Backlog — **só encadear um comando extra se seu escopo for genuinamente
+disjunto** do que um comando anterior na mesma fase já produz (evita
+duplicar conteúdo, o mesmo tipo de dano visto na fusão indevida de fences):
+
+| Fase | Antes | Depois | Por quê |
+|------|-------|--------|---------|
+| Discovery | `*start` | `*generate` | `*start` é modo-entrevista, não gera relatório sem humano; `*generate` já cobre os 6 passos do workflow (contexto → stakeholders → problemas → restrições → premissas/riscos → relatório) |
+| PRD | `*generate` | `*generate → *trace` | `*trace` é checagem, não geração — disjunto. `*personas` foi propositalmente deixado de fora: já é seção 3 do `*generate` |
+| Architecture | `*design` | `*phase-a → *phase-b → *phase-c → *phase-d → *phase-e → *review` | Split não-sobreposto por fase TOGAF, mesma lógica que corrigiu o Backlog. `*phase-e` **não existia como comando** — adicionado à persona (cobre Opportunities & Solutions + Team Plan E.4-E.9, que já estavam descritos no corpo do documento sem comando dedicado) |
+| Backlog | `*breakdown → *estimate → *staffing` | `+ *sprint → *trace` | `*prioritize`/`*dependencies` ficaram de fora: `*breakdown` já inclui campo Prioridade e Dependências por story — chamá-los de novo restataria, não acrescentaria |
+| Business Case | `*analyze` | *(sem mudança)* | único caso em que o comando único já entregava a estrutura completa (10/10 seções) nos 3 runs medidos; os demais comandos (`*roi`, `*costs`, `*risks`, `*alternatives`, `*recommendation`) cobrem seções que `*analyze` já produz — encadeá-los arriscaria duplicar, não somar |
+
+**Validação end-to-end (run real, RFP de varejo, `nvidia/nemotron-nano-9b-v2:free`
+via OpenRouter):**
+
+| Métrica | Antes (3 runs) | Depois (1 run) |
+|---|---|---|
+| Discovery — requisitos capturados | 0 | relatório completo com 7 seções, tabela de stakeholders |
+| Diagramas Mermaid (meta: 11) | 4, 8, 5 | **13** |
+| ADRs | 1, 0, 5 | **6** |
+| FRs órfãos no backlog (inventados) | até 9 | **0** |
+| Duração total do pipeline | ~7min (7 chamadas de LLM) | **14,3min** (16 chamadas de LLM) |
+
+**Trade-off aceito e comunicado ao usuário antes de implementar:** o pipeline
+foi de 7 para 16 chamadas de LLM, dobrando o tempo de execução. Vale para
+entregável de cliente (o objetivo do enriquecimento); é exagero para um teste
+rápido — ainda não há um modo "rápido vs. completo" configurável, fica como
+possível próximo passo.
+
+**Não-regressão confirmada:** o parser de fences (`markdown.ts`, corrigido na
+seção anterior) não foi tocado nesta mudança. O novo run ainda mostra ~12
+backticks soltos na renderização (Architecture e Backlog) — mas são o MESMO
+tipo de defeito genuíno de modelo já documentado acima (linhas malformadas
+tipo `` ```<next_steps> `` e `` `````` ``, não CommonMark válido), não uma
+regressão introduzida por este encadeamento. Confirmado inspecionando as
+linhas de fence brutas do artefato.
