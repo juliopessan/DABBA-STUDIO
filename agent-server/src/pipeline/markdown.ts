@@ -5,6 +5,50 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+// The architect persona asks for markdown pipe tables, and the free model
+// still emits raw <table> markup roughly half the time (measured: 6 tables in
+// one validation run, after the persona was rewritten). Escaping them, as the
+// parser did before, delivered the angle-bracket source to the reader instead
+// of a table — the defect this is here to end. So a narrow subset of block
+// HTML is allowed through instead.
+//
+// The content originates from an LLM acting on an uploaded RFP, so it is
+// untrusted: a document could carry markup designed to run when the report is
+// opened. Sanitising works by escaping the block completely FIRST and then
+// re-enabling only the tags on this list — an allowlist applied to already
+// inert text, so anything unanticipated (script, iframe, event handlers,
+// javascript: URLs) stays escaped rather than relying on a blocklist to have
+// predicted it. Attributes are dropped wholesale except the two that carry
+// real table structure.
+const ALLOWED_HTML_TAGS = [
+  "table", "thead", "tbody", "tfoot", "tr", "th", "td",
+  "h1", "h2", "h3", "h4", "h5", "h6",
+  "p", "br", "ul", "ol", "li", "strong", "em", "b", "i", "code",
+];
+
+function sanitizeHtmlBlock(block: string): string {
+  const escaped = escapeHtml(block);
+  const tagPattern = new RegExp(
+    `&lt;(/?)(${ALLOWED_HTML_TAGS.join("|")})((?:\\s[^&]*?)?)\\s*(/?)&gt;`,
+    "gi"
+  );
+  return escaped.replace(tagPattern, (_whole, closing: string, tag: string, attrs: string, selfClose: string) => {
+    const kept: string[] = [];
+    if (!closing) {
+      for (const attr of ["colspan", "rowspan"]) {
+        const match = new RegExp(`\\b${attr}\\s*=\\s*["']?(\\d{1,3})["']?`, "i").exec(attrs ?? "");
+        if (match) kept.push(`${attr}="${match[1]}"`);
+      }
+    }
+    const suffix = kept.length ? ` ${kept.join(" ")}` : "";
+    return `<${closing}${tag.toLowerCase()}${suffix}${selfClose ? " /" : ""}>`;
+  });
+}
+
+// Only block-level containers start a passthrough; inline tags are left to the
+// normal escaping path so a stray "<" in prose still renders literally.
+const HTML_BLOCK_START = /^<(table|thead|tbody|h[1-6]|ul|ol)\b/i;
+
 // The personas are instructed not to emit emoji (see FORMATTING_RULE in
 // llm/provider.ts), but a free model reaches for ✅/⚠️ in checklists often
 // enough that the rendered deliverable needs a deterministic guarantee, not
@@ -263,7 +307,12 @@ export function markdownToHtml(markdown: string): string {
     // never valid standalone Mermaid syntax (a real dash-edge always has
     // node names attached, e.g. "A --- B", never a line of only dashes) —
     // so it cannot appear here as genuine diagram content.
-    if (inCodeBlock && /^-{3,}$/.test(line.trim())) {
+    // An opening HTML block tag is the same kind of signal for the same
+    // reason: Mermaid has no <table> or <h3> construct, so one appearing
+    // inside an open fence means the fence was never closed. Measured: three
+    // Team Plan tables were trapped this way behind an unclosed gantt block
+    // in a single run.
+    if (inCodeBlock && (/^-{3,}$/.test(line.trim()) || HTML_BLOCK_START.test(line.trim()))) {
       html.push("</code></pre>");
       inCodeBlock = false;
     }
@@ -271,6 +320,33 @@ export function markdownToHtml(markdown: string): string {
     if (inCodeBlock) {
       html.push(escapeHtml(rawLine) + "\n");
       i++;
+      continue;
+    }
+
+    // Raw HTML block: consume it whole and hand it over sanitised. The block
+    // ends at its own closing tag, or — because the model does not always
+    // close what it opens — at the first blank line following one, so a
+    // missing </table> cannot swallow the rest of the document the way an
+    // unclosed code fence used to.
+    const htmlBlockStart = HTML_BLOCK_START.exec(line.trim());
+    if (htmlBlockStart) {
+      flushParagraph();
+      closeAllLists();
+      const tag = htmlBlockStart[1].toLowerCase();
+      const closing = new RegExp(`</${tag}\\s*>`, "i");
+      const block: string[] = [];
+      let closed = false;
+      while (i < lines.length) {
+        block.push(lines[i]);
+        if (closing.test(lines[i])) {
+          closed = true;
+          i++;
+          break;
+        }
+        i++;
+        if (closed || (block.length > 1 && lines[i]?.trim() === "" && /<\/[a-z]+\s*>/i.test(block[block.length - 1]))) break;
+      }
+      html.push(sanitizeHtmlBlock(block.join("\n")));
       continue;
     }
 
