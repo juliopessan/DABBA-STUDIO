@@ -1,5 +1,6 @@
 import type { PipelineRun, PhaseArtifact } from "../db/sqlite.js";
 import { markdownToHtml } from "./markdown.js";
+import { findOrphanRequirements } from "./quality.js";
 
 const PHASE_LABELS: Record<string, string> = {
   discovery: "Discovery",
@@ -76,6 +77,43 @@ function buildFooter(run: PipelineRun, artifacts: PhaseArtifact[]): string {
     </footer>`;
 }
 
+// The `*trace` command asks the model to audit its own traceability, and it
+// reports success unconditionally — one run stated "Gaps Identified: None"
+// while the backlog cited FR-005 and FR-007, which the PRD never defined, and
+// described them with invented detail. A reader has no way to tell a real
+// clean bill of health from that one. This block is computed from the
+// artifacts rather than asserted by the model, so it cannot report a false
+// pass; when there is genuinely nothing to flag it renders nothing at all,
+// keeping a clean document clean.
+function buildQualityNotice(artifacts: PhaseArtifact[]): string {
+  const orphans = findOrphanRequirements(artifacts);
+  if (orphans.length === 0) return "";
+
+  const byPhase = new Map<string, string[]>();
+  for (const { id, phase } of orphans) {
+    const list = byPhase.get(phase) ?? [];
+    if (!list.includes(id)) list.push(id);
+    byPhase.set(phase, list);
+  }
+
+  const items = [...byPhase.entries()]
+    .map(
+      ([phase, ids]) =>
+        `<li><strong>${escapeHtml(phase)}</strong> cites ${ids
+          .sort()
+          .map((id) => `<code>${escapeHtml(id)}</code>`)
+          .join(", ")}</li>`
+    )
+    .join("");
+
+  return `
+    <section class="quality-notice">
+      <p class="quality-title">Traceability check</p>
+      <p class="quality-body">These requirement IDs are referenced downstream but never defined in the PRD. Treat the statements built on them as unverified.</p>
+      <ul>${items}</ul>
+    </section>`;
+}
+
 export function buildConsolidatedReport(run: PipelineRun, artifacts: PhaseArtifact[]): string {
   const generatedAt = new Date().toLocaleString("en-US");
 
@@ -117,6 +155,7 @@ export function buildConsolidatedReport(run: PipelineRun, artifacts: PhaseArtifa
   --ink: #11110f;
   --ink-soft: #5c5952;
   --clay: #ed6738;
+  --clay-dark: #c8481c;
   --clay-tint: #f7ddd1;
   --sage: #5c8a5e;
   --display: "Helvetica Neue", "Inter Tight", Helvetica, Arial, sans-serif;
@@ -211,6 +250,25 @@ section.phase {
   padding: 40px 36px;
   margin-top: 16px;
 }
+.quality-notice {
+  border-left: 2px solid var(--clay);
+  background: var(--clay-tint);
+  padding: 18px 22px;
+  margin: 0 0 40px;
+  border-radius: 2px;
+}
+.quality-title {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  font-size: 11px;
+  color: var(--clay-dark);
+  margin: 0 0 8px;
+}
+.quality-body { font-size: 14px; color: var(--ink-soft); margin: 0 0 10px; }
+.quality-notice ul { margin: 0; padding-left: 20px; font-size: 13.5px; color: var(--ink); }
+.quality-notice code { font-family: var(--mono); font-size: 0.92em; }
+
 .crew-mark { display: grid; grid-template-columns: repeat(2, 14px); grid-template-rows: repeat(2, 14px); gap: 3px; margin-bottom: 24px; }
 .crew-mark span:nth-child(1) { background: var(--bg); }
 .crew-mark span:nth-child(2) { background: var(--clay); }
@@ -263,6 +321,8 @@ section.phase {
       <h3>Phases</h3>
       <ul>${toc}</ul>
     </nav>
+
+    ${buildQualityNotice(artifacts)}
 
     ${sections}
 

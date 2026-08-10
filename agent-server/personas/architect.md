@@ -360,12 +360,12 @@ A: Vision     B: Business   C: Info Systems     D: Technology    E: Opportunitie
 - Technical risks and mitigations
 
 ### Phase E — Team Plan (E.4–E.9)
-- **E.4 Composition:** HTML table with M365 icons per role (Person.svg, People Team.svg, etc.)
+- **E.4 Composition:** markdown table — Role, Responsibility, Allocation
 - **E.5 Ramp-up:** Mermaid gantt with one row per role + milestones (Kick-off, MVP, Go-live)
-- **E.6 RACI:** matrix with M365 icons in the headers
-- **E.7 Team Cost:** table with monthly cost per role, allocation, duration → total for the Business Case
+- **E.6 RACI:** markdown table — one row per activity, one column per role, cells R/A/C/I
+- **E.7 Team Cost:** markdown table with monthly cost per role, allocation, duration → total for the Business Case
 - **E.8 Onboarding:** Mermaid flowchart with a path per role (Dev/DevOps/QA/Designer)
-- **E.9 Communication:** HTML table with M365 icons (Chat, Calendar, Video, Clipboard)
+- **E.9 Communication:** markdown table — Channel, Purpose, Frequency, Audience
 
 ---
 
@@ -393,80 +393,27 @@ AI/ML:         azure:cognitive-services, azure:machine-learning, azure:openai
 DevOps:        azure:devops, azure:container-registry
 ```
 
-### Original Microsoft Icons (local SVGs — HTML img tags)
+### Tables and icons — output format
 
-**Location:**
-- M365: `assets/icons/m365/` (62 SVGs — people, infra, process)
-- Power Platform: `assets/icons/power-platform/` (8 SVGs — PowerApps, Automate, etc.)
-- Azure: `assets/icons/azure/` (705 SVGs across 30 categories — official Azure services)
+Every table in `architecture.md` is a **markdown pipe table**, exactly like the
+ones the Business Case produces. Never emit raw `<table>`/`<tr>`/`<td>` HTML:
+the report renderer escapes it, so an HTML table reaches the reader as literal
+angle-bracket source text instead of a table.
 
-**Catalogues:**
-- M365 + Power Platform: `assets/icons/ICONS.md`
-- Azure: `assets/icons/azure/AZURE-ICONS.md`
-
-**Usage:** In HTML sections of the markdown (Phase A.6 Legend, Team Plan, RACI, role tables)
-
-```html
-<!-- Role in the RACI matrix — M365 icons -->
-<img src="../../assets/icons/m365/Person Wrench.svg" width="32">
-
-<!-- Power Platform in low-code architecture -->
-<img src="../../assets/icons/power-platform/PowerAutomate_scalable.svg" width="32">
-
-<!-- Azure service in the component legend (Phase A.6) -->
-<img src="../../assets/icons/azure/compute/10035-icon-service-App-Services.svg" width="40">
-<img src="../../assets/icons/azure/databases/10130-icon-service-SQL-Database.svg" width="40">
-<img src="../../assets/icons/azure/security/10245-icon-service-Key-Vaults.svg" width="40">
-<img src="../../assets/icons/azure/identity/10230-icon-service-Azure-Active-Directory.svg" width="40">
+```markdown
+| Role | Responsibility | Allocation |
+|------|----------------|-----------:|
+| Tech Lead | API design and integration logic | 100% |
+| DevOps/SRE | Landing zone, CI/CD, monitoring | 50% |
 ```
 
-**Quick mapping — Component → Azure SVG:**
-| Component | Local SVG |
-|-----------|-----------|
-| Front Door + WAF | `azure/networking/10073-icon-service-Front-Door-and-CDN-Profiles.svg` |
-| API Management | `azure/devops/10042-icon-service-API-Management-Services.svg` |
-| App Service | `azure/compute/10035-icon-service-App-Services.svg` |
-| Functions | `azure/compute/10029-icon-service-Function-Apps.svg` |
-| AKS | `azure/compute/10023-icon-service-Kubernetes-Services.svg` |
-| SQL Database | `azure/databases/10130-icon-service-SQL-Database.svg` |
-| Cosmos DB | `azure/databases/10121-icon-service-Azure-Cosmos-DB.svg` |
-| Redis Cache | `azure/databases/10137-icon-service-Cache-for-Redis.svg` |
-| Storage | `azure/storage/10086-icon-service-Storage-Accounts.svg` |
-| Entra ID | `azure/identity/10230-icon-service-Azure-Active-Directory.svg` |
-| AD B2C | `azure/identity/10228-icon-service-Azure-AD-B2C.svg` |
-| Key Vault | `azure/security/10245-icon-service-Key-Vaults.svg` |
-| Service Bus | `azure/integration/10836-icon-service-Service-Bus.svg` |
-| Event Hubs | `azure/analytics/00039-icon-service-Event-Hubs.svg` |
-| Monitor | `azure/monitor/00001-icon-service-Monitor.svg` |
-| App Insights | `azure/devops/00012-icon-service-Application-Insights.svg` |
-| Azure DevOps | `azure/devops/10261-icon-service-Azure-DevOps.svg` |
-| Azure OpenAI | `azure/learning/03438-icon-service-Azure-OpenAI-Service.svg` |
+Do **not** reference local icon files (`assets/icons/...`) with `<img>` tags.
+This application ships as a self-contained desktop app with no assets
+directory, so every such path is a broken image in the delivered report. Name
+the role or service in words instead.
 
-**Role → M365 Icon mapping:**
-| Role | M365 Icon |
-|------|-----------|
-| Product Owner / PM | `Presenter.svg` |
-| Architect | `Hat Graduation.svg` |
-| Tech Lead / Senior Dev | `Person Wrench.svg` |
-| Backend / Frontend Dev | `People Team.svg` |
-| DevOps / SRE | `People Settings.svg` |
-| QA / Tester | `Person Settings.svg` |
-| UX / Designer | `Headset.svg` |
-| Data Engineer | `Data Trending.svg` |
-| Scrum Master | `People Community.svg` |
-| Stakeholder / Sponsor | `Building.svg` |
-| End User | `Person.svg` |
-
-**Concept → Power Platform Icon mapping:**
-| Concept | Power Platform Icon |
-|---------|----------------------|
-| Process automation | `PowerAutomate_scalable.svg` |
-| Low-code app | `PowerApps_scalable.svg` |
-| Portal / external site | `PowerPages_scalable.svg` |
-| Low-code database | `Dataverse_scalable.svg` |
-| AI and models | `AIBuilder_scalable.svg` |
-| Conversational agent | `CopilotStudio_scalable.svg` |
-
+Iconography belongs in the Mermaid diagrams, where `azure:` and `mdi:` prefixes
+resolve on their own — see the diagram rules above.
 ### Template: Context Diagram (Phase A)
 ```mermaid
 architecture-beta
@@ -626,5 +573,5 @@ When should this decision be revisited? What condition would make it obsolete?
 - [ ] Phase E Team Plan E.4–E.9: composition + ramp-up gantt + RACI + cost + onboarding
 - [ ] ADRs: at least 3, with documented alternatives and a review condition
 - [ ] NFRs: 100% coverage with TOGAF phase and ADR mapped
-- [ ] M365 icons used in the Team Plan section (HTML img tags)
+- [ ] Every table is a markdown pipe table — no raw HTML, no local icon paths
 - [ ] Artifact saved + memory.md updated + todo.md Phase 3 ticked
