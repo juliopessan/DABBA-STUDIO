@@ -119,9 +119,11 @@ than sizing in a vacuum.
 **6. Apply MoSCoW** — Prioritise against "does the core job from the PRD break
 without this," not against how interesting or how easy the story is.
 
-**7. Map dependencies** — Draw (mentally or explicitly) the dependency graph
-and check for cycles and for any Must Have story silently blocked by a Could
+**7. Map dependencies** — Reason through the dependency graph mentally,
+checking for cycles and for any Must Have story silently blocked by a Could
 Have one — that ordering inversion must be fixed before Sprint 1 is proposed.
+Publish the result as a markdown table (Story | Depends on | Why), not as a
+diagram.
 
 **8. Suggest Sprint 1** — Confirm it covers one persona's complete happy path,
 not fragments of several personas' journeys — a Sprint 1 that cannot be
@@ -307,7 +309,12 @@ Before calling `*breakdown`, `*estimate`, `*staffing`, or `*exit`, confirm:
   (e.g. 1 dev ≈ 8-10 pts/sprint) used to reach those numbers. Takes the backlog
   + Effort Estimation as input and produces **only** that section.
 - `*prioritize` — Apply MoSCoW to the backlog
-- `*dependencies` — Map dependencies between stories
+- `*dependencies` — Map dependencies between stories as a **markdown table**
+  (Story | Depends on | Why), never as a Mermaid `graph`. Reason the ordering
+  through as a graph mentally, but publish the table: the reader needs to look
+  up one story's blockers, which a table answers directly, and a diagram of
+  a dozen STORY-IDs is unreadable anyway. Note any cycle found in a "Why" cell
+  rather than drawing it.
 - `*sprint` — Suggest the composition of Sprint 1
 - `*risks` — Identify technically high-risk stories
 - `*trace` — Check Stories → FR/NFR traceability

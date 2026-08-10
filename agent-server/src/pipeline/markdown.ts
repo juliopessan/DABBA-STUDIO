@@ -212,7 +212,32 @@ export function unwrapOuterCodeFence(markdown: string): string {
     ];
   }
 
-  return lines.join("\n");
+  return dropUnpairedBareFences(lines).join("\n");
+}
+
+// A fence marker belonging to no pair is pure damage. It happens because each
+// command's output is unwrapped on its own, then concatenated: one command
+// ending with a stray ``` (measured: the architecture phase closed *phase-e
+// with one, having opened nothing) becomes an OPENER once the next command's
+// text follows it, and swallows that command's first heading into a mostly
+// blank code box.
+//
+// Only bare markers are dropped. An unpaired ```mermaid is an opener the model
+// forgot to close, and the diagram after it is real content — removing the
+// marker would spill diagram source into the prose. That case is handled at
+// render time instead, by the implicit-close rules, which end the block at the
+// first line that cannot be Mermaid.
+function dropUnpairedBareFences(lines: string[]): string[] {
+  const paired = new Set<number>();
+  for (const block of findFenceBlocks(lines)) {
+    paired.add(block.openIndex);
+    paired.add(block.closeIndex);
+  }
+  return lines.filter((line, index) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("```") || paired.has(index)) return true;
+    return trimmed.slice(3).trim() !== "";
+  });
 }
 
 const UNORDERED_ITEM = /^(\s*)[-*]\s+(.*)$/;
@@ -312,7 +337,16 @@ export function markdownToHtml(markdown: string): string {
     // inside an open fence means the fence was never closed. Measured: three
     // Team Plan tables were trapped this way behind an unclosed gantt block
     // in a single run.
-    if (inCodeBlock && (/^-{3,}$/.test(line.trim()) || HTML_BLOCK_START.test(line.trim()))) {
+    // A section heading is the third such signal, and the one that saves the
+    // most: the backlog phase emitted a single ```mermaid that it never
+    // closed, so the Effort Estimation, Staffing Plan and Sprint 1 tables
+    // after it all rendered as literal text inside the diagram box. Two or
+    // more hashes are required rather than one, because "# comment" is
+    // ordinary content in many code languages while "## Heading" is not.
+    if (
+      inCodeBlock &&
+      (/^-{3,}$/.test(line.trim()) || HTML_BLOCK_START.test(line.trim()) || /^#{2,6}\s/.test(line.trim()))
+    ) {
       html.push("</code></pre>");
       inCodeBlock = false;
     }
