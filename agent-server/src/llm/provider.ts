@@ -49,7 +49,7 @@ const FORMATTING_RULE = `OUTPUT FORMATTING — these are client-facing deliverab
 
 export interface RunResult {
   mode: "live" | "dry-run";
-  provider?: "anthropic" | "openrouter";
+  provider?: "anthropic" | "openrouter" | "gemini";
   model?: string;
   output: string;
   fallbackAttempts?: { model: string; status: number }[];
@@ -57,6 +57,9 @@ export interface RunResult {
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+
+const DEFAULT_GEMINI_MODEL = "gemini-3.7-flash";
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 function buildUserMessage(command: string, input?: string): string {
   return input ? `Command: ${command}\n\n${input}` : `Command: ${command}`;
@@ -93,6 +96,58 @@ async function runAnthropic(apiKey: string, systemPrompt: string, userMessage: s
   return { mode: "live", provider: "anthropic", model, output };
 }
 
+// Gemini keeps the persona out of the conversation turns entirely, in its own
+// systemInstruction field, which is the closest match to how Anthropic and
+// OpenRouter are called here — the alternative (prepending the persona to the
+// user turn) is what makes a model more likely to echo it back as content,
+// the failure this pipeline already had to defend against.
+//
+// maxOutputTokens is set well above the Anthropic path's 4096: a single
+// architecture command emits ~30k characters, and Gemini counts the thinking
+// budget against this same limit, so a tight value truncates the artifact
+// mid-table rather than erroring.
+async function runGemini(apiKey: string, systemPrompt: string, userMessage: string): Promise<RunResult> {
+  const model = process.env.DABBA_GEMINI_MODEL ?? process.env.DABBA_LLM_MODEL ?? DEFAULT_GEMINI_MODEL;
+  const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: "user", parts: [{ text: userMessage }] }],
+      generationConfig: { maxOutputTokens: 32768, temperature: 0.7 },
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Gemini error (${response.status}): ${body}`);
+  }
+
+  const data = (await response.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+    promptFeedback?: { blockReason?: string };
+  };
+
+  const candidate = data.candidates?.[0];
+  const output = (candidate?.content?.parts ?? [])
+    .map((part) => part.text ?? "")
+    .join("")
+    .trim();
+
+  if (!output) {
+    // An empty body with a finishReason is Gemini refusing or running out of
+    // room, not a transport failure — surfacing the reason turns a silently
+    // blank artifact into a legible error.
+    const reason = candidate?.finishReason ?? data.promptFeedback?.blockReason ?? "unknown";
+    throw new Error(`Gemini returned no text (finishReason: ${reason})`);
+  }
+
+  return { mode: "live", provider: "gemini", model, output };
+}
+
 async function runOpenRouter(apiKey: string, systemPrompt: string, userMessage: string): Promise<RunResult> {
   const { model, output, attempts } = await runWithFallback(apiKey, systemPrompt, userMessage);
   return {
@@ -113,8 +168,18 @@ export async function runAgentCommand(req: RunRequest): Promise<RunResult> {
     LANGUAGE_RULE + FORMATTING_RULE + (req.autoMode ? AUTO_MODE_PREFIX + req.systemPrompt : req.systemPrompt);
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const anthropicKey = process.env.DABBA_LLM_API_KEY;
-  const provider = process.env.DABBA_LLM_PROVIDER ?? (openRouterKey ? "openrouter" : anthropicKey ? "anthropic" : undefined);
+  const geminiKey = process.env.GEMINI_API_KEY;
+  // Gemini is preferred over OpenRouter when both are present and nothing is
+  // pinned explicitly: it exists here precisely because the free OpenRouter
+  // models were the source of the quality problems this pipeline spent so
+  // long defending against. Setting DABBA_LLM_PROVIDER still overrides.
+  const provider =
+    process.env.DABBA_LLM_PROVIDER ??
+    (geminiKey ? "gemini" : openRouterKey ? "openrouter" : anthropicKey ? "anthropic" : undefined);
 
+  if (provider === "gemini" && geminiKey) {
+    return runGemini(geminiKey, systemPrompt, userMessage);
+  }
   if (provider === "openrouter" && openRouterKey) {
     return runOpenRouter(openRouterKey, systemPrompt, userMessage);
   }
@@ -125,7 +190,7 @@ export async function runAgentCommand(req: RunRequest): Promise<RunResult> {
   return {
     mode: "dry-run",
     output: [
-      "Nenhum provider LLM configurado (OPENROUTER_API_KEY ou DABBA_LLM_API_KEY) — nenhuma chamada de API foi feita.",
+      "Nenhum provider LLM configurado (GEMINI_API_KEY, OPENROUTER_API_KEY ou DABBA_LLM_API_KEY) — nenhuma chamada de API foi feita.",
       "Prompt que seria enviado:",
       `--- system ---\n${systemPrompt}`,
       `--- user ---\n${userMessage}`,
