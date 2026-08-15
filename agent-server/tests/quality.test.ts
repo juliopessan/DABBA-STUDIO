@@ -95,3 +95,27 @@ describe("traceability", () => {
     assert.deepEqual(findOrphanRequirements(artifacts), []);
   });
 });
+
+describe("report shell", () => {
+  test("carries an embedded favicon and requests nothing external for it", async () => {
+    // The report is handed to a client as one self-contained file, often
+    // opened from disk with no network — a linked icon would just be missing.
+    const { buildConsolidatedReport } = await import("../src/pipeline/htmlReport.js");
+    const run = {
+      id: "run-1",
+      project_name: "Test",
+      status: "done" as const,
+      created_at: new Date().toISOString(),
+      report_path: null,
+    };
+    const html = buildConsolidatedReport(run, [artifact("discovery", "# Report\n\ntext")]);
+    const icon = html.match(/<link rel="icon"[^>]*>/)?.[0];
+    assert.ok(icon, "the report must declare a favicon");
+    // The href scheme is what decides whether anything is fetched. Testing for
+    // the absence of "http" anywhere would fail on the SVG's own XML
+    // namespace, which no browser ever requests.
+    const href = icon!.match(/href="([^"]*)"/)?.[1] ?? "";
+    assert.ok(href.startsWith("data:image/svg+xml,"), "inlined, not linked");
+    assert.ok(decodeURIComponent(href).includes("<svg"), "and a decodable svg");
+  });
+});

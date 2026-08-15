@@ -28,6 +28,25 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// The same 2x2 mark the landing page and the report's own footer already use —
+// paper ground, ink and clay quadrants — so a report tab is recognisable as
+// DABBA at a glance among the dozen tabs a reviewer has open.
+//
+// Inlined as a data URI rather than linked to a file: the report is handed to
+// a client as a single self-contained HTML document, often opened from disk
+// with no server and no network, and a linked icon would simply be missing.
+// The `#` of each colour is percent-encoded because an unescaped one would
+// terminate the URI as a fragment.
+const FAVICON = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${[
+  `%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E`,
+  `%3Crect width='1024' height='1024' rx='224' fill='%23F2EFE8'/%3E`,
+  `%3Crect x='216' y='216' width='272' height='272' rx='28' fill='%2311110F'/%3E`,
+  `%3Crect x='536' y='216' width='272' height='272' rx='28' fill='%23ED6738'/%3E`,
+  `%3Crect x='216' y='536' width='272' height='272' rx='28' fill='%23ED6738'/%3E`,
+  `%3Crect x='536' y='536' width='272' height='272' rx='28' fill='%2311110F'/%3E`,
+  `%3C/svg%3E`,
+].join("")}" />`;
+
 function formatDuration(ms: number): string {
   const total = Math.max(0, Math.round(ms / 1000));
   const m = Math.floor(total / 60);
@@ -145,6 +164,7 @@ export function buildConsolidatedReport(run: PipelineRun, artifacts: PhaseArtifa
 <meta charset="utf-8" />
 <title>DABBA Studio — ${escapeHtml(run.project_name)}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+${FAVICON}
 <style>
 @import url("https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap");
 
