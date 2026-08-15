@@ -85,8 +85,9 @@ only what actually changed.
   conclusion was produced.
 - **Delivery in one piece.** The client gets a navigable document with the
   full content of all five phases, not a folder of files.
-- **Cost under control.** Runs on the user's own key and, by default, on free
-  models with automatic fallback when one fails or hits its quota.
+- **Cost under control.** Runs on the user's own key — Gemini, Anthropic, or
+  OpenRouter's free models with automatic fallback when one fails or hits its
+  quota.
 
 ### Proof
 
@@ -164,7 +165,7 @@ Full walkthrough, from a clean checkout to a working `.dmg`. Two paths:
 | Node.js 20+ | Runs the agent-server and the GUI dev server | `node --version` |
 | npm | Package manager (workspaces are npm-based) | `npm --version` |
 | Rust + Cargo | Only needed for the desktop app (Tauri + sidecar build) | `rustc --version` |
-| An LLM API key | OpenRouter (free-tier friendly) or Anthropic | — |
+| An LLM API key | Gemini, OpenRouter (free-tier friendly) or Anthropic | — |
 
 **Installing Rust** (skip if you only want the browser dev flow):
 
@@ -193,10 +194,26 @@ template and fill in your key:
 cp agent-server/.env.example agent-server/.env
 ```
 
-**Option A — OpenRouter** (default, free-tier models with automatic fallback):
+Three providers are supported. When several keys are present and
+`DABBA_LLM_PROVIDER` is not set, the order of preference is
+**Gemini → OpenRouter → Anthropic**.
+
+**Option A — Gemini** (recommended for client-facing output):
 
 ```bash
 # agent-server/.env
+GEMINI_API_KEY=AIza...
+# optional: override the model
+# DABBA_GEMINI_MODEL=gemini-3.7-flash
+```
+
+Get a key at [Google AI Studio](https://aistudio.google.com/apikey).
+
+**Option B — OpenRouter** (free-tier models with automatic fallback):
+
+```bash
+# agent-server/.env
+DABBA_LLM_PROVIDER=openrouter
 OPENROUTER_API_KEY=sk-or-v1-...
 # optional: override the list/order of free models tried
 # DABBA_OPENROUTER_MODELS=nvidia/nemotron-nano-9b-v2:free,openai/gpt-oss-20b:free
@@ -208,7 +225,16 @@ If a free model errors out, returns 429 (rate limit), or runs out of quota,
 `fallbackAttempts` listing which models failed before the one that
 answered — shown in the GUI.
 
-**Option B — Anthropic**:
+The free tier is genuinely free but the models are small, and the pipeline
+carries a fair amount of machinery specifically to survive them: a document
+whose sections drift off-topic, a response that echoes the persona back
+instead of producing the artifact, or a `*trace` that reports "no gaps" while
+citing requirements that were never defined. Those defences run regardless of
+provider — see [docs/decisions.md](docs/decisions.md) — but the free tier is
+where they earn their keep. Use it to explore; prefer Gemini or Anthropic for
+anything a client will read.
+
+**Option C — Anthropic**:
 
 ```bash
 # agent-server/.env
