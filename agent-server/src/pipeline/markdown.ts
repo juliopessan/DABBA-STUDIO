@@ -66,6 +66,23 @@ const BOX_BORDER_LINE = /^(?:[─-╿]|\+[-─═+]{2,})/;
 // rows also start with "|", out of this path entirely.
 const BOX_INTERIOR_LINE = /^[|│]/;
 
+// The third dialect is a vertical flow: node labels in brackets joined by
+// connector-only lines.
+//
+//   [Document Ingestion]
+//            │
+//            ▼
+//   [Text Extraction & Purview Label Detection]
+//
+// The node lines start with "[", not a drawing character, so matching on
+// drawing characters alone caught only the lone connectors and emitted each
+// as its own one-character <pre> — five of them in a single report, which is
+// what "table out of standard" looked like. A line made of nothing but
+// vertical connectors and whitespace is the reliable signature here; it is
+// never prose, and requiring an actual connector (not just dashes) keeps the
+// "---" horizontal rule out of it.
+const CONNECTOR_ONLY_LINE = /^[\s]*[│|▼▲v^↓↑]+[\s│|▼▲v^↓↑]*$/;
+
 // The personas are instructed not to emit emoji (see FORMATTING_RULE in
 // llm/provider.ts), but a free model reaches for ✅/⚠️ in checklists often
 // enough that the rendered deliverable needs a deterministic guarantee, not
@@ -369,21 +386,32 @@ export function markdownToHtml(markdown: string): string {
     }
 
     if (inCodeBlock) {
-      html.push(escapeHtml(rawLine) + "\n");
+      // No trailing "\n" here: every entry of `html` is joined with "\n" at
+      // the end, so adding one per line double-spaced the inside of every
+      // code block — a blank line between each row of each Mermaid diagram in
+      // every report ever produced.
+      html.push(escapeHtml(rawLine));
       i++;
       continue;
     }
 
-    // Unfenced ASCII drawing: keep the run of box-drawing lines verbatim in a
-    // <pre>, which is what the model meant even though it did not say so.
-    if (BOX_BORDER_LINE.test(line.trim())) {
+    // Unfenced ASCII drawing: keep the run verbatim in a <pre>, which is what
+    // the model meant even though it did not say so. A drawing starts either
+    // on a box border, or on any line whose successor is connector-only —
+    // that second case is what pulls the bracketed node labels of a vertical
+    // flow into the same block as their arrows, instead of leaving the labels
+    // as prose and the arrows as isolated one-character boxes.
+    const startsDrawing =
+      BOX_BORDER_LINE.test(line.trim()) ||
+      (lines[i + 1] !== undefined && CONNECTOR_ONLY_LINE.test(lines[i + 1]) && line.trim() !== "");
+    if (startsDrawing) {
       flushParagraph();
       closeAllLists();
       const drawing: string[] = [];
-      while (
-        i < lines.length &&
-        (BOX_BORDER_LINE.test(lines[i].trim()) || BOX_INTERIOR_LINE.test(lines[i].trim()))
-      ) {
+      // Once inside, every non-blank line belongs to the drawing: node labels
+      // and captions are ordinary text and cannot be recognised structurally.
+      // The blank line that follows any diagram is the terminator.
+      while (i < lines.length && lines[i].trim() !== "") {
         drawing.push(escapeHtml(lines[i]));
         i++;
       }
