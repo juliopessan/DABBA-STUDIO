@@ -49,6 +49,23 @@ function sanitizeHtmlBlock(block: string): string {
 // normal escaping path so a stray "<" in prose still renders literally.
 const HTML_BLOCK_START = /^<(table|thead|tbody|h[1-6]|ul|ol)\b/i;
 
+// Models draw boxes (scope tables, capability maps, layer diagrams, folder
+// trees) and frequently forget to fence them. Left as prose, the paragraph
+// builder joins the lines with spaces and the drawing collapses into one
+// unreadable run — observed on a real report's capability map, data-flow
+// lifecycles and Azure deployment boundary alike.
+//
+// Two dialects show up, sometimes mixed in the same drawing: the Unicode
+// box-drawing block (┌ ├ └ │ ─) and plain ASCII (+---+ with | sides). Neither
+// character set has a use in ordinary prose, so a line starting with one is
+// preformatted by definition, fence or no fence.
+const BOX_BORDER_LINE = /^(?:[─-╿]|\+[-─═+]{2,})/;
+
+// A bare "|" line only continues a drawing that has already started — it can
+// never begin one. That distinction is what keeps ordinary GFM tables, whose
+// rows also start with "|", out of this path entirely.
+const BOX_INTERIOR_LINE = /^[|│]/;
+
 // The personas are instructed not to emit emoji (see FORMATTING_RULE in
 // llm/provider.ts), but a free model reaches for ✅/⚠️ in checklists often
 // enough that the rendered deliverable needs a deterministic guarantee, not
@@ -354,6 +371,23 @@ export function markdownToHtml(markdown: string): string {
     if (inCodeBlock) {
       html.push(escapeHtml(rawLine) + "\n");
       i++;
+      continue;
+    }
+
+    // Unfenced ASCII drawing: keep the run of box-drawing lines verbatim in a
+    // <pre>, which is what the model meant even though it did not say so.
+    if (BOX_BORDER_LINE.test(line.trim())) {
+      flushParagraph();
+      closeAllLists();
+      const drawing: string[] = [];
+      while (
+        i < lines.length &&
+        (BOX_BORDER_LINE.test(lines[i].trim()) || BOX_INTERIOR_LINE.test(lines[i].trim()))
+      ) {
+        drawing.push(escapeHtml(lines[i]));
+        i++;
+      }
+      html.push(`<pre><code>${drawing.join("\n")}\n</code></pre>`);
       continue;
     }
 
