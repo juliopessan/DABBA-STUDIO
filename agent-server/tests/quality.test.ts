@@ -109,13 +109,25 @@ describe("report shell", () => {
       report_path: null,
     };
     const html = buildConsolidatedReport(run, [artifact("discovery", "# Report\n\ntext")]);
-    const icon = html.match(/<link rel="icon"[^>]*>/)?.[0];
-    assert.ok(icon, "the report must declare a favicon");
+    const icons = [...html.matchAll(/<link rel="icon"[^>]*>/g)].map((m) => m[0]);
+    const hrefOf = (tag: string) => tag.match(/href="([^"]*)"/)?.[1] ?? "";
+
+    // Both forms must ship. Chrome does not render an SVG favicon delivered
+    // through a data: URI, so the SVG alone left the tab blank; the PNG is the
+    // one that actually appears there.
+    const svg = icons.find((i) => i.includes('type="image/svg+xml"'));
+    const png = icons.find((i) => i.includes('type="image/png"'));
+    assert.ok(svg, "the vector form must be declared");
+    assert.ok(png, "the raster fallback must be declared — an SVG data URI alone does not render in Chrome");
+
     // The href scheme is what decides whether anything is fetched. Testing for
     // the absence of "http" anywhere would fail on the SVG's own XML
     // namespace, which no browser ever requests.
-    const href = icon!.match(/href="([^"]*)"/)?.[1] ?? "";
-    assert.ok(href.startsWith("data:image/svg+xml,"), "inlined, not linked");
-    assert.ok(decodeURIComponent(href).includes("<svg"), "and a decodable svg");
+    assert.ok(hrefOf(svg!).startsWith("data:image/svg+xml,"), "inlined, not linked");
+    assert.ok(decodeURIComponent(hrefOf(svg!)).includes("<svg"), "and a decodable svg");
+
+    const base64 = hrefOf(png!).replace("data:image/png;base64,", "");
+    const bytes = Buffer.from(base64, "base64");
+    assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a", "a real PNG signature");
   });
 });

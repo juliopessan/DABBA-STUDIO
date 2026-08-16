@@ -32,12 +32,17 @@ function escapeHtml(s: string): string {
 // paper ground, ink and clay quadrants — so a report tab is recognisable as
 // DABBA at a glance among the dozen tabs a reviewer has open.
 //
-// Inlined as a data URI rather than linked to a file: the report is handed to
-// a client as a single self-contained HTML document, often opened from disk
-// with no server and no network, and a linked icon would simply be missing.
-// The `#` of each colour is percent-encoded because an unescaped one would
-// terminate the URI as a fragment.
-const FAVICON = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${[
+// Both forms are inlined rather than linked: the report is handed to a client
+// as a single self-contained HTML document, often opened from disk with no
+// server and no network, where a linked icon would simply be missing.
+//
+// Two of them, because one is not enough. Chrome does not render an SVG
+// favicon supplied through a data: URI — it accepts SVG from a URL, and it
+// accepts a data: URI that is a raster, but not the combination. The report
+// shipped with only the SVG form and the tab stayed blank. The PNG is declared
+// last so the browsers that can only use it pick it up, while Safari and
+// Firefox still get the vector.
+const FAVICON_SVG = `data:image/svg+xml,${[
   `%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E`,
   `%3Crect width='1024' height='1024' rx='224' fill='%23F2EFE8'/%3E`,
   `%3Crect x='216' y='216' width='272' height='272' rx='28' fill='%2311110F'/%3E`,
@@ -45,7 +50,24 @@ const FAVICON = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,
   `%3Crect x='216' y='536' width='272' height='272' rx='28' fill='%23ED6738'/%3E`,
   `%3Crect x='536' y='536' width='272' height='272' rx='28' fill='%2311110F'/%3E`,
   `%3C/svg%3E`,
-].join("")}" />`;
+].join("")}`;
+
+// 32x32 rasterisation of the SVG above, 574 bytes.
+const FAVICON_PNG = `data:image/png;base64,${[
+  "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAB80lEQVRYhe2Xv24TQRjEf9/l",
+  "FEBmDye2YzsFFPhPSt4CoYQO8gDuE8SbIFLzAEgWDUmBeIi0xEkTmhzRBcd3uAA599HExopu704Q48bTzuzN7Op2dleYQhT5",
+  "a/EVuyibAk2gwO1gqGgP5MBx2TOmdj4mZGJ+efZSVd4B5pZMbYhEtGOK9e4kwLX5++lAM4aK6LYp1rsSRf6ajjhh9jO/iVBc",
+  "bTjxFbtzMAfw4hE7jihbczAfY8sFHtvYL0c9giBI5MrlMhvtFgDqn6LRZaJOTBGpPUrmkIYL3E8ie8cnPH32PC09nz8d0PSW",
+  "Gb15lapzX79Fqg+TKOPYBl1cfE/96FijwzBTl6axBvhfWARYBHBtRKm0mjm4VFpFCsuZOil4di7s+2oj04qoUqnQbjWBjCLy",
+  "VmwdAKSsAED7wR1aTvKVQMyfmR8NfhIEw0RdOb7HRtXuYQ2g377marjj8Feuxmw1G4mc9SfM23B5G9OGue+CRYBFAOs2TGuv",
+  "aU2pdDdTl9aqEvb9EMulNG/D5W3MBIQy6PuHAk+sEWcIRQ8dYH8e5tf4OM+HyYCluOEYUzsX0Q5gPRVnABWk43nrgQNgivWu",
+  "iG4D2QfAv2MgyAuzUv0ANx6jUXRWiUfsODibirawvBn+Aj8E6cXE+7Kke563PtkyvwFzibkr8gCf1gAAAABJRU5ErkJggg==",
+].join("")}`;
+
+const FAVICON = [
+  `<link rel="icon" type="image/svg+xml" href="${FAVICON_SVG}" />`,
+  `<link rel="icon" type="image/png" sizes="32x32" href="${FAVICON_PNG}" />`,
+].join("\n");
 
 function formatDuration(ms: number): string {
   const total = Math.max(0, Math.round(ms / 1000));
