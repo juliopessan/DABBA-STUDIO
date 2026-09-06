@@ -25,6 +25,23 @@ Speculation lives here. Once something is proven by a real run it graduates to
       during the pre-sales brainstorm as probably the highest-leverage
       practical gap.
 
+## Commercial proposal — shipped, next steps
+
+- [x] Rate card in SQLite, seeded with public market benchmarks.
+- [x] Deterministic costing from the stored staffing plan.
+- [x] Optional terminal `proposal` phase — reads the analysis, never writes to it.
+- [ ] **Enter the firm's real rate card.** Until then every total prints as an
+      estimate rather than a quote. `PUT /rate-card`.
+- [ ] Location mix per role. Today the whole engagement prices at one location;
+      a real bid blends onshore, nearshore and offshore, and the blend moves the
+      total more than any other single input.
+- [ ] Compliance matrix (RFP clause -> where answered). Argued in the brainstorm
+      as the higher-value pre-sales artifact and lower hallucination risk than
+      the proposal narrative — still not built.
+- [ ] Traceability marking inside the proposal: which commitments trace to an
+      RFP clause and which are ours. The machinery exists
+      (`findOrphanRequirements`), pointed at a different pair of artifacts.
+
 ## Product direction (parked, from the brainstorm)
 
 Explored but deliberately not started — recorded so the reasoning is not lost.

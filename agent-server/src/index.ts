@@ -7,8 +7,10 @@ import { isSea } from "node:sea";
 import { initAgents, listAgents, getAgent } from "./agents/registry.js";
 import { runAgentCommand } from "./llm/provider.js";
 import { extractText, isSupportedExtension } from "./upload/extractText.js";
-import { startPipeline, PIPELINE_STEPS } from "./pipeline/orchestrator.js";
+import { startPipeline, runProposal, PIPELINE_STEPS } from "./pipeline/orchestrator.js";
 import { getRun, getArtifacts } from "./db/sqlite.js";
+import { seedBenchmarkRates, listRates, setRate, getRate, isBenchmarkOnly } from "./db/rateCard.js";
+import { priceRun, GRADES, LOCATIONS } from "./pipeline/pricing.js";
 import { ENV_FILE } from "./appPaths.js";
 
 // In dev the `.env` lives next to the source (agent-server/.env) — tried
@@ -138,7 +140,69 @@ app.get("/pipeline/:id/report.html", (req, res) => {
   res.send(readFileSync(run.report_path, "utf-8"));
 });
 
+app.get("/rate-card", (_req, res) => {
+  res.json({ grades: GRADES, locations: LOCATIONS, rates: listRates() });
+});
+
+app.put("/rate-card", (req, res) => {
+  const { grade, location, hourlyRate, currency, note } = req.body ?? {};
+  if (!GRADES.includes(grade) || !LOCATIONS.includes(location)) {
+    res.status(400).json({ error: `grade must be one of ${GRADES.join(", ")} and location one of ${LOCATIONS.join(", ")}` });
+    return;
+  }
+  if (typeof hourlyRate !== "number" || !Number.isFinite(hourlyRate) || hourlyRate <= 0) {
+    res.status(400).json({ error: "hourlyRate must be a positive number" });
+    return;
+  }
+  setRate(grade, location, hourlyRate, currency, note);
+  res.json({ rates: listRates() });
+});
+
+// Costing is a read over a finished run: it prices the stored staffing plan and
+// never calls a model, so it can be re-requested as often as the rate card
+// changes without spending a token.
+app.get("/pipeline/:id/costing", (req, res) => {
+  const run = getRun(req.params.id);
+  if (!run) {
+    res.status(404).json({ error: `run not found: ${req.params.id}` });
+    return;
+  }
+  const location = typeof req.query.location === "string" ? req.query.location : "onshore";
+  const backlog = getArtifacts(run.id).find((a) => a.phase === "backlog");
+  res.json(priceRun(backlog?.output, location, getRate, isBenchmarkOnly()));
+});
+
+// Opt-in, and only after the analysis is finished: the proposal reads the
+// artifacts and never writes back into them.
+app.post("/pipeline/:id/proposal", async (req, res) => {
+  const run = getRun(req.params.id);
+  if (!run) {
+    res.status(404).json({ error: `run not found: ${req.params.id}` });
+    return;
+  }
+  if (run.status !== "done") {
+    res.status(409).json({ error: "the analysis is not finished yet, so there is nothing to build a proposal from" });
+    return;
+  }
+
+  const location = typeof req.body?.location === "string" ? req.body.location : "onshore";
+  const backlog = getArtifacts(run.id).find((a) => a.phase === "backlog");
+  const costing = priceRun(backlog?.output, location, getRate, isBenchmarkOnly());
+
+  try {
+    const artifact = await runProposal(run.id, costing);
+    res.json({
+      proposal: { ...artifact, output: undefined, length: artifact.output.length },
+      costing,
+      reportUrl: `/pipeline/${run.id}/report.html`,
+    });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 initAgents().then(() => {
+  seedBenchmarkRates();
   app.listen(PORT, () => {
     console.log(`agent-server listening on http://localhost:${PORT}`);
   });

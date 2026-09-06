@@ -1,9 +1,11 @@
 import { getAgent } from "../agents/registry.js";
 import { runAgentCommand } from "../llm/provider.js";
-import { createRun, saveArtifact, updateRunStatus, getArtifacts, getRun, type PipelineRun } from "../db/sqlite.js";
+import { createRun, saveArtifact, updateRunStatus, getArtifacts, getRun, type PipelineRun, type PhaseArtifact } from "../db/sqlite.js";
 import { buildConsolidatedReport } from "./htmlReport.js";
 import { unwrapOuterCodeFence } from "./markdown.js";
 import { looksLikePersonaEcho } from "./quality.js";
+import { assembleProposal, PROPOSAL_COMMANDS } from "./proposal.js";
+import type { Costing } from "./pricing.js";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { OUTPUT_DIR } from "../appPaths.js";
@@ -248,4 +250,69 @@ async function processPipeline(runId: string, rfpText: string): Promise<void> {
   const reportPath = path.join(OUTPUT_DIR, `${runId}.html`);
   writeFileSync(reportPath, html, "utf-8");
   updateRunStatus(runId, "done", reportPath);
+}
+
+/**
+ * Builds the commercial proposal for a finished run. Deliberately not part of
+ * PIPELINE_STEPS: it is an opt-in terminal step that *reads* the analysis and
+ * never writes back into it. The moment discovery starts being written with
+ * one eye on the proposal, the analysis stops being honest and becomes a sales
+ * document wearing a lab coat.
+ *
+ * The model writes only narrative. Team and cost tables are generated from the
+ * stored staffing plan and the rate card, then stitched in afterwards — see
+ * proposal.ts.
+ */
+export async function runProposal(runId: string, costing: Costing): Promise<PhaseArtifact> {
+  const run = getRun(runId);
+  if (!run) throw new Error(`run not found: ${runId}`);
+
+  const agent = getAgent("proposal");
+  if (!agent) throw new Error("the proposal agent is not registered");
+
+  const artifacts = getArtifacts(runId);
+  if (artifacts.length === 0) throw new Error("this run has no analysis to build a proposal from");
+
+  // The analysis is the only source. Fenced blocks are dropped and the whole
+  // thing is bounded for the same reason every other phase bounds its input:
+  // an overrun context does not fail loudly, it quietly writes a generic
+  // document (measured on this pipeline — see docs/lessons-learned.md).
+  const analysis = artifacts
+    .map((a) => `# ${a.phase}\n\n${stripFencedBlocks(a.output)}`)
+    .join("\n\n");
+  const base = `# Source analysis\n\n${truncateAt(analysis, CARRIED_CONTEXT_BUDGET)}`;
+
+  const sections: Record<string, string> = {};
+  for (const command of PROPOSAL_COMMANDS) {
+    const result = await runAgentCommand({
+      systemPrompt: agent.persona,
+      command,
+      input: base,
+      autoMode: true,
+    });
+    sections[command] = unwrapOuterCodeFence(result.output);
+  }
+
+  const document = assembleProposal(
+    { executive: sections["*executive"] ?? "", approach: sections["*approach"] ?? "" },
+    costing
+  );
+
+  const artifact = saveArtifact(
+    runId,
+    "proposal",
+    "proposal",
+    PROPOSAL_COMMANDS.join(" → "),
+    document,
+    undefined,
+    undefined
+  );
+
+  // Re-render so the proposal appears in the delivered document.
+  const refreshed = getArtifacts(runId);
+  const reportPath = path.join(OUTPUT_DIR, `${runId}.html`);
+  writeFileSync(reportPath, buildConsolidatedReport(run, refreshed), "utf-8");
+  updateRunStatus(runId, "done", reportPath);
+
+  return artifact;
 }

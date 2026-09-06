@@ -201,3 +201,60 @@ code fix had done it.
 **Lesson:** confirm which binary is answering before trusting a result, and
 compare like with like. A validation run against the wrong build is worse than
 no validation, because it manufactures confidence.
+
+---
+
+## [PROPOSAL] A commercial proposal is assembled, not generated
+
+**Evidence:** the same defect that produces an invented requirement ID produces
+an invented price, and the consequence is not the same. Measured on this
+pipeline, `gemini-3.7-flash` invented FR-013, FR-014 and FR-015 with complete,
+plausible descriptions when the PRD stopped at FR-012. In a PRD that is a
+traceability gap; in a proposal it is a commitment somebody signs.
+
+**Lesson:** most of a proposal already exists in the artifacts — scope from the
+PRD, approach from the architecture, team and duration from the staffing plan.
+Split the work by who can be trusted with it:
+
+- **Code assembles** everything numeric. Team, hours and cost are arithmetic
+  over the stored staffing plan and the rate card (`pricing.ts`,
+  `proposal.ts`), inserted after the model has written.
+- **The model writes** only connective narrative, and its persona forbids
+  emitting any figure at all — no currency, no headcount, no percentage. If a
+  sentence needs a number, it names the section instead.
+
+Verified on a real run: the narrative contained zero monetary values and zero
+percentages, while the generated tables carried the full costing.
+
+---
+
+## [PROPOSAL] Missing input, not model weakness
+
+**Evidence:** pricing needs a rate card, pyramid ratios and location mix. None
+of it appears in an RFP or in any earlier phase, and all of it is
+firm-confidential. A model asked to price has nothing to reason from.
+
+**Lesson:** this is an input problem and must be solved as one. The rate card
+lives in SQLite (`rate_card`), seeded once with public market benchmarks and
+stamped `market-benchmark`; a hand-entered rate is stamped `firm-actual`. The
+proposal reads that stamp and, while any rate is still a benchmark, prints
+"This total is an estimate, not a quote" above the total.
+
+A missing rate produces a stated gap, never a zero — summing an absent rate as
+zero understates an engagement with nothing on the page saying so.
+
+---
+
+## [PROPOSAL] Inference must be visible, not buried
+
+**Evidence:** role titles in the staffing plan name skills ("AI QA & Evaluation
+Specialist"), never grades. Mapping title to grade is therefore inference, and
+it is the assumption most likely to be wrong. An early version mapped "Lead" to
+Senior Manager, which put a single line at $358k on a real run — an error that
+survives review precisely because the total still looks plausible.
+
+**Lesson:** print the inference next to the number. The Team and Effort table
+carries a Grade column and tells the reader to check it, because a consultant
+can correct it in seconds and nobody can correct what they cannot see. "Lead"
+now maps to Manager, a hands-on delivery grade; "Architect" keeps the higher
+one.

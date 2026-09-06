@@ -8,6 +8,7 @@ const PHASE_LABELS: Record<string, string> = {
   architecture: "Architecture",
   backlog: "Backlog",
   "business-case": "Business Case",
+  proposal: "Commercial Proposal",
 };
 
 // Mirrors the persona names in agent-server/personas/*.md — kept as a small
@@ -22,6 +23,7 @@ const AGENT_NAMES: Record<string, string> = {
   architect: "Tony",
   backlog: "Steve",
   "business-case": "Pepper",
+  proposal: "Nick",
 };
 
 function escapeHtml(s: string): string {

@@ -3,7 +3,10 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { DATA_DIR } from "../appPaths.js";
 
-const db = new DatabaseSync(path.join(DATA_DIR, "dabba.sqlite"));
+// Exported so sibling modules (rateCard.ts) can add their own tables without
+// a second connection to the same file — node:sqlite has no connection pool,
+// and two handles on one database is how you get a locked write.
+export const db = new DatabaseSync(path.join(DATA_DIR, "dabba.sqlite"));
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS pipeline_runs (
