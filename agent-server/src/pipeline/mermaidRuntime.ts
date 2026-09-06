@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import path from "node:path";
 
 // Mirrors agents/loader.ts exactly, for the same reason: packaged as a Node
 // SEA there is no "file next to it" to read from disk — the runtime is
@@ -20,11 +21,16 @@ async function readFromSeaAssets(): Promise<string> {
 function readFromDisk(): string {
   // A real npm dependency (see package.json), not a hand-placed file — the
   // version is declared and lockfile-pinned rather than living only as a
-  // comment next to a curl command. Resolved via require.resolve rather than
-  // a path relative to cwd, so this works the same whether the caller is
-  // `npm run dev` from agent-server/ or scripts/regenerate-report.ts invoked
-  // from the repo root.
-  const require = createRequire(import.meta.url);
+  // comment next to a curl command.
+  //
+  // Resolved via createRequire(process.cwd()) rather than import.meta.url:
+  // this file is bundled to CJS for the packaged sidecar (see
+  // scripts/build-sidecar.mjs), and esbuild leaves `import.meta` empty in
+  // that output format — the exact same constraint documented in
+  // agents/loader.ts for the same reason. process.cwd() is agent-server/
+  // both in dev (`npm run dev`) and when scripts/regenerate-report.ts is
+  // invoked from the repo root (its own cwd handling matches loader.ts).
+  const require = createRequire(path.join(process.cwd(), "package.json"));
   const entry = require.resolve("mermaid/dist/mermaid.min.js");
   return readFileSync(entry, "utf-8");
 }

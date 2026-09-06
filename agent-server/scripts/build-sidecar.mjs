@@ -8,6 +8,7 @@
 // re-sign (macOS invalidates the signature when the binary changes).
 import { execFileSync } from "node:child_process";
 import { chmodSync, copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
@@ -106,7 +107,12 @@ async function main() {
   // only as a comment; embedded as a SEA asset for the identical reason
   // personas are: the packaged binary has no "next to it" directory to read
   // a file from at runtime.
-  assets["mermaid.min.js"] = path.join(ROOT, "node_modules", "mermaid", "dist", "mermaid.min.js");
+  // Resolved via require.resolve rather than a hardcoded node_modules path —
+  // npm workspaces hoist shared deps to the monorepo root's node_modules, not
+  // necessarily agent-server/node_modules (see postject below for the same
+  // issue with a devDependency).
+  const requireFromHere = createRequire(import.meta.url);
+  assets["mermaid.min.js"] = requireFromHere.resolve("mermaid/dist/mermaid.min.js");
 
   const seaConfigPath = path.join(BUILD_DIR, "sea-config.json");
   const blobPath = path.join(BUILD_DIR, "sea-prep.blob");
