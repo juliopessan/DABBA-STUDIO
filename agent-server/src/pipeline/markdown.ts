@@ -83,6 +83,71 @@ const BOX_INTERIOR_LINE = /^[|│]/;
 // "---" horizontal rule out of it.
 const CONNECTOR_ONLY_LINE = /^[\s]*[│|▼▲v^↓↑]+[\s│|▼▲v^↓↑]*$/;
 
+/**
+ * Repairs the one Mermaid syntax mistake the personas make often enough to be
+ * worth a deterministic guard: a space between a node and the `:::class`
+ * operator that styles it. Mermaid requires them touching — `A[Label]:::cls`
+ * parses, `A[Label] :::cls` is a parse error — and the model, writing what
+ * reads naturally, puts a space there.
+ *
+ * Measured on a real run (903e8ed5, architecture phase): both of the two
+ * diagrams that failed to render in an eleven-diagram report failed for
+ * exactly this reason, and both parse once the space is removed. Before this,
+ * the reader got Mermaid's own error graphic where the picture should be.
+ *
+ * Deliberately narrow, per the rule that a general transformation eventually
+ * eats real content: only horizontal whitespace immediately before `:::`, only
+ * on lines inside a ```mermaid fence. `:::` has no other meaning in Mermaid,
+ * so there is nothing legitimate for this to damage.
+ */
+// Mermaid ships exactly five icons for `architecture-beta`, and they are the
+// only ones that resolve without registering an Iconify pack over the network
+// — verified against Mermaid 11.17.2 in the browser, not assumed. Anything
+// else renders as a literal "?" glyph where the icon should be.
+//
+// Ordered longest-intent-first: a name is matched against the whole qualified
+// string ("azure:sql-database"), so the database rule has to win over the
+// generic "service" one.
+const ARCHITECTURE_ICON_FALLBACKS: [RegExp, string][] = [
+  [/sql|database|cosmos|postgres|mysql|redis|cache|\bdb\b/i, "database"],
+  [/storage|blob|disk|archive|backup|bucket|volume/i, "disk"],
+  [/internet|world|web|globe|browser|email|mail|user|account|people|domain|office|factory|monitor/i, "internet"],
+  [/server|\bvm\b|virtual|container|kubernetes|function|app|api|gateway|firewall|network|bus|directory|vault|logic|compute/i, "server"],
+];
+
+/**
+ * Repairs the two Mermaid mistakes the personas make often enough to be worth
+ * a deterministic guard. Both are measured on run 903e8ed5, an eleven-diagram
+ * architecture phase, and both put visible damage in a client-facing document.
+ *
+ * 1. A space between a node and the `:::class` operator that styles it.
+ *    Mermaid requires them touching — `A[Label]:::cls` parses, `A[Label] :::cls`
+ *    is a parse error — and the model, writing what reads naturally, puts a
+ *    space there. Two of that run's diagrams failed to render for this reason
+ *    alone, printing Mermaid's own error graphic where the picture belonged.
+ *
+ * 2. Iconify icon names in `architecture-beta` nodes (`azure:sql-database`,
+ *    `mdi:web`). These resolve only if an icon pack is registered, which means
+ *    fetching one over the network — the assumption this whole report is built
+ *    to avoid (see mermaidRuntime.ts). Unresolved, every node renders a "?"
+ *    glyph: 48 of them across that run's three architecture diagrams. Worse,
+ *    the `azure:` prefix the architect persona documents is not a real Iconify
+ *    prefix at all, so those could never have resolved by any means.
+ *
+ * Both transformations are deliberately narrow, per the rule that a general
+ * one eventually eats real content. The icon rewrite fires only on a `service`
+ * or `group` declaration — keywords that exist solely in `architecture-beta` —
+ * so a flowchart node whose label legitimately contains a colon, like
+ * `A(Step 1: do the thing)`, is never touched.
+ */
+export function repairMermaidLine(line: string): string {
+  const spaced = line.replace(/[ \t]+:::/g, ":::");
+  return spaced.replace(/^(\s*(?:service|group)\s+[\w-]+\()([^)]*:[^)]*)(\))/, (_m, head, icon, tail) => {
+    const match = ARCHITECTURE_ICON_FALLBACKS.find(([pattern]) => pattern.test(icon));
+    return `${head}${match ? match[1] : "cloud"}${tail}`;
+  });
+}
+
 // The personas are instructed not to emit emoji (see FORMATTING_RULE in
 // llm/provider.ts), but a free model reaches for ✅/⚠️ in checklists often
 // enough that the rendered deliverable needs a deterministic guarantee, not
@@ -398,7 +463,7 @@ export function markdownToHtml(markdown: string): string {
       // the end, so adding one per line double-spaced the inside of every
       // code block — a blank line between each row of each Mermaid diagram in
       // every report ever produced.
-      html.push(escapeHtml(rawLine));
+      html.push(escapeHtml(codeBlockIsMermaid ? repairMermaidLine(rawLine) : rawLine));
       i++;
       continue;
     }

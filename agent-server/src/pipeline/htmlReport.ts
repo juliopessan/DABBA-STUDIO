@@ -214,6 +214,7 @@ ${runtime}
     startOnLoad: false,
     theme: "base",
     securityLevel: "strict",
+    suppressErrorRendering: true,
     themeVariables: {
       background: "#f2efe8",
       primaryColor: "#e5e1d8",
@@ -231,13 +232,41 @@ ${runtime}
       fontFamily: "'Inter Tight', Helvetica, Arial, sans-serif",
     },
   });
-  mermaid.run({ querySelector: ".mermaid" }).catch(function (err) {
-    // A diagram the model wrote with genuinely invalid Mermaid syntax should
-    // not take the rest of the report down with it — Mermaid already leaves
-    // the failing element as an inert error message in place; this just
-    // keeps that failure out of a console a reader will never open.
-    console.error("mermaid render failed:", err);
-  });
+  // Rendered one diagram at a time rather than through mermaid.run(), because
+  // a diagram the model wrote with invalid syntax must not put Mermaid's own
+  // error graphic — a red bomb icon reading "Syntax error in text / mermaid
+  // version 11.17.2" — inside a document that goes to a client. Measured on a
+  // real run: two of eleven diagrams in one report failed to parse and both
+  // printed that graphic verbatim.
+  //
+  // suppressErrorRendering makes mermaid.render() reject instead of resolving
+  // with that error graphic as its SVG, which is what hands the failure back
+  // here to be shown as the diagram's own source instead. A reader who cannot
+  // see the picture can at least read what it was meant to say, and the
+  // remaining diagrams are unaffected.
+  (async function () {
+    var nodes = Array.prototype.slice.call(document.querySelectorAll(".mermaid"));
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      var source = el.textContent;
+      try {
+        var rendered = await mermaid.render("dabba-diagram-" + i, source);
+        el.innerHTML = rendered.svg;
+      } catch (err) {
+        console.error("mermaid render failed:", err);
+        var note = document.createElement("p");
+        note.className = "diagram-fallback-note";
+        note.textContent = "This diagram could not be rendered — its source follows.";
+        var pre = document.createElement("pre");
+        var code = document.createElement("code");
+        // textContent, never innerHTML: the source is model output acting on
+        // an uploaded RFP, so it is untrusted like everything else here.
+        code.textContent = source;
+        pre.appendChild(code);
+        el.replaceWith(note, pre);
+      }
+    }
+  })();
 </script>`;
 }
 
@@ -341,6 +370,16 @@ section.phase {
   font-size: 13px;
 }
 .phase-content code { font-family: ui-monospace, monospace; font-size: 0.92em; }
+/* Caption above a diagram whose source Mermaid refused to parse. Deliberately
+   a quiet one-line note rather than a warning box: the reader is told what
+   happened once, and the source below it is the actual content. */
+.diagram-fallback-note {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: var(--clay-dark);
+  margin: 16px 0 6px;
+}
 
 .report-footer {
   background: var(--ink);

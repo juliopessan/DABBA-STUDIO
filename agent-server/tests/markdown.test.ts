@@ -49,6 +49,66 @@ describe("code blocks", () => {
     assert.equal(html.includes("<table"), false);
   });
 
+  test("a space before ::: is removed so the diagram parses", () => {
+    // Verbatim from run 903e8ed5, architecture phase — both diagrams that
+    // failed to render in that eleven-diagram report failed on exactly this,
+    // and both parse once the space is gone (verified against Mermaid 11.17.2
+    // in the browser). Mermaid needs `Node[Label]:::class` with nothing
+    // between them.
+    const html = markdownToHtml(
+      "```mermaid\nflowchart TD\n    classDef startEnd fill:#0078D4;\n    Start([Inbound Invoice Received]) :::startEnd --> Ingest[Capture Document] :::automated\n```"
+    );
+    const body = mermaidBlocks(html)[0];
+    assert.doesNotMatch(body, / :::/, "no space may survive in front of the class operator");
+    assert.match(body, /Received\]\):::startEnd/);
+    assert.match(body, /Document\]:::automated/);
+  });
+
+  test("Iconify icon names become one of the five Mermaid ships", () => {
+    // Verbatim from run 903e8ed5: the architect persona used to document a
+    // whole catalogue of `azure:`/`mdi:` names, none of which resolve without
+    // fetching an Iconify pack over the network — 48 "?" glyphs across that
+    // run's three architecture diagrams. (`azure:` is not even a real Iconify
+    // prefix.) Only cloud/database/disk/internet/server render offline,
+    // verified against Mermaid 11.17.2 in the browser.
+    const html = markdownToHtml(
+      [
+        "```mermaid",
+        "architecture-beta",
+        "  group platform(azure:azure)[AP Automation Platform]",
+        "  service db(azure:sql-database)[Azure SQL] in platform",
+        "  service store(azure:storage-accounts)[Blob Storage] in platform",
+        "  service api(azure:api-management)[API Gateway] in platform",
+        "  service users(mdi:account-group)[Finance Users]",
+        "```",
+      ].join("\n")
+    );
+    const body = mermaidBlocks(html)[0];
+    assert.doesNotMatch(body, /azure:|mdi:/, "no unresolvable icon name may survive");
+    assert.match(body, /group platform\(cloud\)/, "an unclassifiable name falls back to cloud");
+    assert.match(body, /service db\(database\)/);
+    assert.match(body, /service store\(disk\)/);
+    assert.match(body, /service api\(server\)/);
+    assert.match(body, /service users\(internet\)/);
+    assert.match(body, /\[Azure SQL\]/, "the label, where the reader actually looks, is untouched");
+  });
+
+  test("a flowchart label containing a colon is not mistaken for an icon", () => {
+    // The icon rewrite fires only on `service`/`group`, keywords unique to
+    // architecture-beta. A round-edged flowchart node whose label has a colon
+    // looks similar enough to be worth pinning down.
+    const html = markdownToHtml("```mermaid\nflowchart TD\n  A(Step 1: capture the document) --> B\n```");
+    assert.match(mermaidBlocks(html)[0], /A\(Step 1: capture the document\)/);
+  });
+
+  test("the ::: repair does not touch a non-mermaid block", () => {
+    // The repair is scoped to mermaid fences because ":::" means nothing to
+    // Mermaid other than the class operator — but it means plenty elsewhere
+    // (admonition syntax, prose, YAML), so it must not reach those.
+    const html = markdownToHtml("Some prose with a ::: marker in it.");
+    assert.match(html, / ::: /, "prose is left exactly as written");
+  });
+
   test("an unfenced ASCII drawing never gets the mermaid wrapper", () => {
     // "mermaid" is the only fence language kept as literal code (see
     // unwrapOuterCodeFence) — every other fenced language is unwrapped, so

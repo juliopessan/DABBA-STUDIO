@@ -304,3 +304,47 @@ diagram source is model output acting on an untrusted RFP — the same reason
 raw HTML from the model is sanitised by allowlist elsewhere in this pipeline
 — so Mermaid's own HTML-in-label sanitisation stays on rather than being
 relaxed for convenience.
+
+## [RENDERING] Rendering Mermaid exposed two defects the source text had hidden
+
+**Evidence:** once diagrams actually rendered, a later run (`903e8ed5`, 14
+diagrams) surfaced two failures that had been invisible while every diagram
+was shown as source text. Both reached a delivered report:
+
+1. Two diagrams printed Mermaid's own error graphic — a red bomb icon reading
+   *"Syntax error in text / mermaid version 11.17.2"* — where the picture
+   belonged. Cause: the model wrote `A[Label] :::className` with a space.
+   Mermaid requires them touching; the space is a hard parse error. Both
+   diagrams parse with the space removed, verified in the browser.
+2. All three `architecture-beta` diagrams rendered a literal `?` glyph on
+   every node — 48 of them — because the architect persona documented a
+   catalogue of Iconify names (`azure:sql-database`, `mdi:web`). Those resolve
+   only by fetching an icon pack at view time, which is the exact assumption
+   this report is built to avoid. Worse, `azure:` is not a real Iconify prefix
+   at all, so those could never have resolved by any means. Mermaid ships
+   exactly five icons that work with no registration — `cloud`, `database`,
+   `disk`, `internet`, `server` — confirmed by probing each one in a live tab
+   rather than trusting the docs.
+
+**Lesson:** making output visible is what makes its defects reviewable. Both
+of these had been shipping for as long as the diagrams had, and neither was
+detectable while the reader saw source text — the "?" glyphs did not exist yet
+and the parse error had nothing to parse. Expect a rendering change to
+generate a second round of defects rather than to close the topic.
+
+**Second lesson, the project's own rule applied twice:** the prompt asks; the
+code guarantees. The architect persona now documents only the five icons that
+exist and the no-space `:::` rule, *and* `repairMermaidLine` enforces both
+deterministically — a persona edit alone has never held in this project. Both
+repairs are narrow on purpose: the icon rewrite fires only on `service`/`group`
+lines (keywords unique to `architecture-beta`), so a flowchart node labelled
+`A(Step 1: capture the document)` is untouched. Regression tests use the
+verbatim excerpts from run `903e8ed5`.
+
+**A defect the reader should never see raw:** the failure path itself was also
+wrong. Mermaid's default behaviour is to inject its own error graphic into the
+page, which is how a bomb icon and a version string ended up inside a document
+addressed to a client. `suppressErrorRendering: true` plus per-diagram
+`mermaid.render()` calls hand the failure back to us, and an unparseable
+diagram now degrades to a quiet one-line note above its own source — the same
+"degrade to source text" behaviour already used when the runtime is missing.
