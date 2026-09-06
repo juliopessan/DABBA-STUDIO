@@ -4,10 +4,19 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>DABBA — Requirements in. Decisions out.</title>
-<meta name="description" content="A local-first agentic workspace for turning RFPs into traceable decisions." />
+<meta name="description" content="A local-first agentic workspace that turns an RFP into discovery, a PRD, an architecture, a backlog and a business case — delivered as one traceable document." />
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Crect width='1024' height='1024' rx='224' fill='%23F2EFE8'/%3E%3Crect x='216' y='216' width='272' height='272' rx='28' fill='%2311110F'/%3E%3Crect x='536' y='216' width='272' height='272' rx='28' fill='%23ED6738'/%3E%3Crect x='216' y='536' width='272' height='272' rx='28' fill='%23ED6738'/%3E%3Crect x='536' y='536' width='272' height='272' rx='28' fill='%2311110F'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  // Sets the flag the reveal styles key off. Written inline in <head>, before
+  // any content paints, so the "hidden until revealed" state only ever exists
+  // when JS is actually running to undo it. Without this, a JS error or a
+  // blocked script would leave a marketing page permanently blank — the one
+  // failure mode a landing page cannot have.
+  document.documentElement.classList.add("js");
+</script>
 <style>
   :root {
     color-scheme: light;
@@ -24,6 +33,7 @@
     --display: "Helvetica Neue", "Inter Tight", Helvetica, Arial, sans-serif;
     --body: "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    --ease: cubic-bezier(.22,.68,.16,1);
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -33,6 +43,7 @@
     color: var(--ink);
     font-family: var(--body);
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
   a { color: inherit; }
   .wrap { max-width: 1160px; margin: 0 auto; padding: 0 32px; }
@@ -59,34 +70,73 @@
     font-weight: 600;
     text-decoration: none;
     border: 1px solid var(--border);
+    transition: transform .3s var(--ease), background .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease);
   }
   .btn-primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
   .btn-ghost { background: transparent; color: var(--ink); }
+  .btn:hover { transform: translateY(-2px); }
+  .btn-ghost:hover { border-color: var(--ink); }
   .btn[disabled], .btn.disabled { opacity: 0.45; pointer-events: none; }
+
+  /* ---------- Reveal system ----------
+     One mechanism for every entrance on the page: an element carries
+     [data-reveal], an IntersectionObserver adds .in once it scrolls into
+     view. --d staggers siblings without a separate rule per element. */
+  .js [data-reveal] {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity .8s var(--ease), transform .8s var(--ease);
+    transition-delay: var(--d, 0ms);
+  }
+  .js [data-reveal].in { opacity: 1; transform: none; }
+
+  /* Headline lines rise out from behind a mask rather than just fading —
+     the one piece of typographic motion on the page, reserved for the two
+     display headlines that matter. */
+  .mask { display: block; overflow: hidden; }
+  .js .mask > span {
+    display: block;
+    transform: translateY(105%);
+    transition: transform 1s var(--ease);
+    transition-delay: var(--d, 0ms);
+  }
+  .js [data-reveal].in .mask > span, .js .mask.in > span { transform: none; }
 
   /* ---------- Header ---------- */
   header.site {
     position: sticky; top: 0; z-index: 20;
-    background: rgba(242,239,232,0.92);
-    backdrop-filter: blur(6px);
-    border-bottom: 1px solid var(--border);
+    background: rgba(242,239,232,0.86);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid transparent;
+    transition: border-color .4s var(--ease), background .4s var(--ease);
   }
+  header.site.stuck { border-bottom-color: var(--border); background: rgba(242,239,232,0.95); }
   .nav-row { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
   .wordmark { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -0.02em; text-decoration: none; }
   .mark { display: grid; grid-template-columns: repeat(2,9px); grid-template-rows: repeat(2,9px); gap: 2px; }
+  .mark span { transition: background .5s var(--ease); }
   .mark span:nth-child(1), .mark span:nth-child(4) { background: var(--ink); }
   .mark span:nth-child(2), .mark span:nth-child(3) { background: var(--clay); }
+  .wordmark:hover .mark span:nth-child(1), .wordmark:hover .mark span:nth-child(4) { background: var(--clay); }
+  .wordmark:hover .mark span:nth-child(2), .wordmark:hover .mark span:nth-child(3) { background: var(--ink); }
   nav.links { display: flex; align-items: center; gap: 32px; font-size: 14px; color: var(--ink-soft); }
-  nav.links a { text-decoration: none; }
+  nav.links a { text-decoration: none; position: relative; transition: color .3s var(--ease); }
+  nav.links a::after {
+    content: ""; position: absolute; left: 0; bottom: -4px; height: 1px; width: 100%;
+    background: var(--clay); transform: scaleX(0); transform-origin: right;
+    transition: transform .4s var(--ease);
+  }
   nav.links a:hover { color: var(--ink); }
+  nav.links a:hover::after { transform: scaleX(1); transform-origin: left; }
   .gh-link { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
-  @media (max-width: 720px) { nav.links .hide-mobile { display: none; } }
+  @media (max-width: 860px) { nav.links .hide-mobile { display: none; } }
 
   /* ---------- Hero ---------- */
-  .hero { padding: 96px 0 72px; }
-  .hero h1 { font-size: clamp(40px, 6vw, 68px); margin: 18px 0 0; }
+  .hero { padding: 104px 0 64px; }
+  .hero h1 { font-size: clamp(40px, 6.4vw, 74px); margin: 18px 0 0; }
   .hero h1 .accent { color: var(--clay); }
-  .hero p.lede { max-width: 640px; color: var(--ink-soft); font-size: 17px; line-height: 1.65; margin: 24px 0 32px; }
+  .hero p.lede { max-width: 660px; color: var(--ink-soft); font-size: 17.5px; line-height: 1.68; margin: 26px 0 34px; }
+  .hero p.lede strong { color: var(--ink); font-weight: 600; }
   .hero-cta { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 44px; }
   .tag-strip {
     font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
@@ -95,85 +145,176 @@
 
   /* ---------- Pipeline diagram ---------- */
   .pipeline-panel {
-    background: var(--panel); border-radius: 3px; padding: 32px; margin-top: 48px;
+    background: var(--panel); border-radius: 3px; padding: 32px; margin-top: 8px;
     display: flex; flex-direction: column; gap: 24px;
   }
-  .pipeline-top { display: flex; align-items: center; justify-content: space-between; }
+  .pipeline-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .live-dot { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
   .live-dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--sage); animation: pulse 2.4s infinite ease-in-out; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
   .diagram-wrap { position: relative; }
-  .pipeline-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 16px; align-items: stretch; }
-  @media (max-width: 860px) { .pipeline-grid { grid-template-columns: 1fr; } }
-  .connectors { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-  .connectors path { fill: none; stroke: var(--border); stroke-width: 1.3px; stroke-dasharray: 4 6; stroke-linecap: round; animation: dash 7s linear infinite; }
-  .connectors path.route { stroke: var(--clay); opacity: .55; }
-  @keyframes dash { to { stroke-dashoffset: -80px; } }
-  @media (max-width: 860px) { .connectors { display: none; } }
-  .io-card { background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 20px; display: flex; flex-direction: column; justify-content: center; }
-  .io-card .eyebrow { color: var(--clay); margin-bottom: 8px; }
-  .io-card .big { font-family: var(--display); font-weight: 700; font-size: 22px; }
-  .io-card .small { color: var(--ink-soft); font-size: 12px; margin-top: 6px; }
-  .input-node { animation: inputPulse 2.4s ease-in-out infinite; }
-  .output-node { animation: outputFloat 3.4s ease-in-out infinite; }
-  @keyframes inputPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
-  @keyframes outputFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-  .phase-list { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
-  .phase-row { position: relative; display: flex; align-items: center; gap: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 10px 14px; }
-  .phase-row .num { font-family: var(--mono); font-size: 11px; color: var(--clay); width: 20px; flex-shrink: 0; }
-  .phase-row .name { font-family: var(--display); font-weight: 700; font-size: 15px; }
-  .phase-row .who { color: var(--ink-soft); font-size: 12px; margin-left: auto; }
-  .phase-light { position: absolute; top: 10px; right: 10px; width: 5px; height: 5px; border-radius: 50%; background: var(--clay); animation: pulse 1.9s ease infinite; }
-  .pipeline-caption { font-size: 13px; color: var(--ink-soft); }
-  .pipeline-caption strong { color: var(--ink); }
-  @media (prefers-reduced-motion: reduce) {
-    .connectors path, .input-node, .output-node, .phase-light { animation: none; }
-  }
+  .pipeline-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 16px; align-items: stretch; }
+  @media (max-width: 900px) { .pipeline-grid { grid-template-columns: 1fr; } }
+  .connectors { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
+  /* The static route: one line in, one spine down through the phases, one line
+     out. Drawn from the real layout, so it is the actual chain rather than a
+     decorative fan. */
+  .connectors .rail { fill: none; stroke: var(--border); stroke-width: 1.4px; stroke-linecap: round; stroke-linejoin: round; }
+  .connectors .stub { fill: none; stroke: var(--border); stroke-width: 1.4px; stroke-linecap: round; }
+  /* The travelling half: the same route, drawn progressively as the packet
+     advances along it. stroke-dashoffset is driven from JS, not a keyframe,
+     so the trail and the packet can never drift out of sync. */
+  .connectors .flow { fill: none; stroke: var(--clay); stroke-width: 1.8px; stroke-linecap: round; stroke-linejoin: round; opacity: .95; }
+  .connectors .packet-glow { fill: var(--clay); opacity: .18; }
+  .connectors .packet-core { fill: var(--clay); }
+  @media (max-width: 900px) { .connectors { display: none; } }
 
-  .marquee { overflow: hidden; white-space: nowrap; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 14px 0; margin-top: 48px; }
-  .marquee-track { display: inline-block; font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); animation: scroll 22s linear infinite; }
+  .io-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 20px;
+    display: flex; flex-direction: column; justify-content: center;
+    transition: border-color .5s var(--ease), transform .5s var(--ease), box-shadow .5s var(--ease);
+  }
+  .io-card.hot { border-color: var(--clay); transform: translateY(-3px); box-shadow: 0 8px 24px -14px rgba(237,103,56,.6); }
+  .io-card .eyebrow { color: var(--clay); margin-bottom: 8px; }
+  .io-card .big { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
+  .io-card .small { color: var(--ink-soft); font-size: 12px; margin-top: 6px; }
+
+  .phase-list { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+  .phase-row {
+    position: relative; display: flex; align-items: center; gap: 12px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 11px 14px;
+    transition: border-color .45s var(--ease), transform .45s var(--ease), background .45s var(--ease);
+  }
+  .phase-row.hot { border-color: var(--clay); transform: translateX(6px); background: var(--clay-tint); }
+  .phase-row .num { font-family: var(--mono); font-size: 11px; color: var(--clay); width: 20px; flex-shrink: 0; }
+  .phase-row .name { font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+  .phase-row .who { color: var(--ink-soft); font-size: 12px; margin-left: auto; font-family: var(--mono); }
+  .phase-row.optional { border-style: dashed; }
+  .phase-row.optional .who { color: var(--ink-faint); }
+  .opt-flag { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--clay); border: 1px solid var(--clay); border-radius: 2px; padding: 1px 5px; margin-left: 10px; }
+  .pipeline-caption { font-size: 13.5px; color: var(--ink-soft); }
+  .pipeline-caption strong { color: var(--ink); }
+
+  .marquee { overflow: hidden; white-space: nowrap; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 14px 0; margin-top: 56px; }
+  .marquee-track { display: inline-block; font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); animation: scroll 34s linear infinite; }
   @keyframes scroll { to { transform: translateX(-50%); } }
-  @media (prefers-reduced-motion: reduce) { .marquee-track { animation: none; } }
 
   /* ---------- Sections ---------- */
-  section { padding: 96px 0; }
+  section { padding: 104px 0; }
   section.split { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 64px; align-items: start; }
-  @media (max-width: 860px) { section.split { grid-template-columns: 1fr; gap: 32px; } }
-  section h2.display { font-size: clamp(30px, 4vw, 44px); margin: 14px 0 0; }
-  .quote { border-left: 2px solid var(--clay); padding-left: 18px; margin-top: 28px; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
+  @media (max-width: 900px) { section.split { grid-template-columns: 1fr; gap: 32px; } section { padding: 76px 0; } }
+  section h2.display { font-size: clamp(30px, 4.2vw, 46px); margin: 14px 0 0; }
+  .quote { border-left: 2px solid var(--clay); padding-left: 18px; margin-top: 30px; color: var(--ink-soft); font-size: 15.5px; line-height: 1.6; }
   .quote strong { color: var(--ink); font-weight: 600; }
-  .body-copy { color: var(--ink-soft); font-size: 15.5px; line-height: 1.75; }
+  .body-copy { color: var(--ink-soft); font-size: 15.5px; line-height: 1.78; }
   .body-copy + .body-copy { margin-top: 16px; }
+  .section-lede { color: var(--ink-soft); font-size: 16px; line-height: 1.7; max-width: 620px; margin: 20px 0 0; }
 
+  /* ---------- Before / after ---------- */
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px; }
+  @media (max-width: 780px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-card { border: 1px solid var(--border); border-radius: 3px; padding: 26px; background: var(--bg); }
+  .ba-card.after { background: var(--panel); border-color: var(--clay); }
+  .ba-card h4 { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 18px; color: var(--ink-faint); }
+  .ba-card.after h4 { color: var(--clay); }
+  .ba-line { display: flex; gap: 12px; padding: 11px 0; border-top: 1px solid var(--border); font-size: 14px; }
+  .ba-line:first-of-type { border-top: none; }
+  .ba-line .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); width: 74px; flex-shrink: 0; padding-top: 3px; }
+  .ba-line .v { color: var(--ink-soft); }
+  .ba-card.after .ba-line .v { color: var(--ink); font-weight: 500; }
+
+  /* ---------- Value cards ---------- */
+  .value-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 44px; }
+  @media (max-width: 780px) { .value-grid { grid-template-columns: 1fr; } }
+  .value-card {
+    border-top: 1px solid var(--border); padding: 26px 0 0;
+    transition: border-color .4s var(--ease);
+  }
+  .value-card:hover { border-top-color: var(--clay); }
+  .value-card .vnum { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; color: var(--clay); }
+  .value-card h3 { font-family: var(--display); font-weight: 700; font-size: 21px; letter-spacing: -0.02em; margin: 12px 0 10px; line-height: 1.15; }
+  .value-card p { color: var(--ink-soft); font-size: 14.5px; line-height: 1.7; margin: 0; }
+
+  /* ---------- Stats ---------- */
   .stats-band { background: var(--ink); color: var(--bg); border-radius: 3px; padding: 48px 40px; display: grid; grid-template-columns: repeat(3,1fr); gap: 32px; }
-  @media (max-width: 720px) { .stats-band { grid-template-columns: 1fr; } }
-  .stat .num { font-family: var(--display); font-weight: 700; color: var(--clay); font-size: 44px; letter-spacing: -0.02em; }
-  .stat .label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: rgba(242,239,232,.6); margin-top: 6px; }
+  @media (max-width: 720px) { .stats-band { grid-template-columns: 1fr; gap: 28px; } }
+  .stat .num { font-family: var(--display); font-weight: 700; color: var(--clay); font-size: clamp(36px, 5vw, 48px); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .stat .label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: rgba(242,239,232,.6); margin-top: 8px; }
   .stats-footnote { display: flex; align-items: center; gap: 10px; margin-top: 20px; font-size: 12.5px; color: var(--ink-soft); }
-  .stats-footnote .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sage); }
+  .stats-footnote .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sage); flex-shrink: 0; }
 
+  /* ---------- Failure modes ---------- */
+  .fail-list { margin-top: 40px; border-top: 1px solid var(--border); }
+  .fail-row {
+    display: grid; grid-template-columns: 200px 1fr; gap: 28px;
+    padding: 26px 0; border-bottom: 1px solid var(--border);
+    transition: background .4s var(--ease);
+  }
+  @media (max-width: 780px) { .fail-row { grid-template-columns: 1fr; gap: 8px; } }
+  .fail-row .fname { font-family: var(--display); font-weight: 700; font-size: 17px; letter-spacing: -0.015em; }
+  .fail-row .fdesc { color: var(--ink-soft); font-size: 14.5px; line-height: 1.7; }
+  .fail-row .fdesc code { font-family: var(--mono); font-size: .88em; background: var(--panel); padding: 1px 5px; border-radius: 2px; }
+
+  /* ---------- Layers ---------- */
   .layers { display: flex; flex-direction: column; }
-  .layer-row { display: flex; align-items: baseline; gap: 20px; padding: 22px 0; border-top: 1px solid var(--border); }
+  .layer-row {
+    display: flex; align-items: baseline; gap: 20px; padding: 24px 0;
+    border-top: 1px solid var(--border);
+    transition: padding-left .4s var(--ease), border-color .4s var(--ease);
+  }
   .layer-row:last-child { border-bottom: 1px solid var(--border); }
+  .layer-row:hover { padding-left: 10px; border-top-color: var(--clay); }
   .layer-row .num { font-family: var(--mono); color: var(--clay); font-size: 12px; width: 20px; flex-shrink: 0; }
-  .layer-row .title { font-family: var(--display); font-weight: 700; font-size: 18px; min-width: 220px; }
+  .layer-row .title { font-family: var(--display); font-weight: 700; font-size: 18px; min-width: 220px; letter-spacing: -0.02em; }
   .layer-row .desc { color: var(--ink-soft); font-size: 13.5px; flex: 1; }
   .layer-row .tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
+  @media (max-width: 780px) { .layer-row { flex-wrap: wrap; gap: 8px 16px; } .layer-row .title { min-width: 0; } .layer-row .desc { flex-basis: 100%; } }
+
+  /* ---------- BYOK ---------- */
+  .byok-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 56px; margin-top: 40px; align-items: start; }
+  @media (max-width: 900px) { .byok-grid { grid-template-columns: 1fr; gap: 36px; } }
+  .provider-chain { display: flex; flex-direction: column; gap: 10px; }
+  .provider {
+    display: flex; align-items: center; gap: 14px; padding: 16px 18px;
+    border: 1px solid var(--border); border-radius: 2px; background: var(--bg);
+    transition: border-color .4s var(--ease), transform .4s var(--ease);
+  }
+  .provider:hover { border-color: var(--clay); transform: translateX(4px); }
+  .provider .p-order { font-family: var(--mono); font-size: 11px; color: var(--clay); }
+  .provider .p-name { font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+  .provider .p-note { margin-left: auto; font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+  .local-box { background: var(--panel); border-radius: 3px; padding: 26px; }
+  .local-box h4 { font-family: var(--display); font-weight: 700; font-size: 18px; margin: 0 0 12px; letter-spacing: -0.02em; }
+  .local-box p { color: var(--ink-soft); font-size: 14px; line-height: 1.7; margin: 0 0 16px; }
+  .local-path { font-family: var(--mono); font-size: 11.5px; color: var(--ink); background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 10px 12px; overflow-x: auto; white-space: nowrap; }
 
   /* ---------- Download gate ---------- */
-  .download-panel { background: var(--panel); border-radius: 3px; padding: 40px; margin-top: 20px; }
+  .download-panel { background: var(--panel); border-radius: 3px; padding: 40px; margin-top: 64px; }
   .download-panel .eyebrow { color: var(--clay); margin-bottom: 12px; }
-  .download-panel h3 { font-family: var(--display); font-weight: 700; font-size: 24px; margin: 0 0 10px; letter-spacing: -0.02em; }
-  .download-panel p { color: var(--ink-soft); font-size: 14px; line-height: 1.6; margin: 0 0 20px; max-width: 480px; }
+  .download-panel h3 { font-family: var(--display); font-weight: 700; font-size: 26px; margin: 0 0 10px; letter-spacing: -0.025em; }
+  .download-panel p { color: var(--ink-soft); font-size: 14.5px; line-height: 1.65; margin: 0 0 22px; max-width: 520px; }
   .download-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .download-note { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+  .download-note { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 16px; }
 
   /* ---------- Closing CTA ---------- */
-  .cta-band { text-align: center; padding: 80px 0 64px; }
+  .cta-band { text-align: center; padding: 96px 0 72px; }
   .cta-band .eyebrow { display: block; margin-bottom: 18px; }
-  .cta-band h2 { font-size: clamp(34px, 6vw, 56px); }
+  .cta-band h2 { font-size: clamp(34px, 6.4vw, 60px); }
+  .cta-band .sub { color: var(--ink-soft); font-size: 16px; line-height: 1.7; max-width: 480px; margin: 26px auto 0; }
 
-  footer.site { border-top: 1px solid var(--border); padding: 28px 0; display: flex; align-items: center; justify-content: space-between; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+  footer.site { border-top: 1px solid var(--border); padding: 28px 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+
+  /* ---------- Motion opt-out ----------
+     Everything above degrades to a static, fully visible page: no transforms,
+     no loops, nothing waiting on an observer to become readable. */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .js [data-reveal], .js [data-reveal].in { opacity: 1; transform: none; transition: none; }
+    .js .mask > span { transform: none; transition: none; }
+    .marquee-track, .live-dot::before { animation: none; }
+    .btn:hover, .provider:hover, .phase-row.hot, .io-card.hot { transform: none; }
+    * { transition-duration: .01ms !important; }
+  }
 </style>
 </head>
 <body>
@@ -186,6 +327,7 @@
     </a>
     <nav class="links">
       <a class="hide-mobile" href="#system">System</a>
+      <a class="hide-mobile" href="#value">What you get</a>
       <a class="hide-mobile" href="#proof">Proof</a>
       <a class="hide-mobile" href="#architecture">Architecture</a>
       <a class="gh-link" href="https://github.com/juliopessan/DABBA-STUDIO" target="_blank" rel="noopener">View GitHub ↗</a>
@@ -195,102 +337,235 @@
 
 <main>
   <section class="hero wrap">
-    <div class="eyebrow">DABBA STUDIO</div>
-    <h1 class="display">Requirements in.<br><span class="accent">Decisions out.</span></h1>
-    <p class="lede">A local-first agentic workspace that turns an RFP into discovery, a PRD, an architecture, a backlog and a business case — then ships the whole analysis as one traceable document.</p>
-    <div class="hero-cta">
-      <a class="btn btn-primary" href="#system">Explore the system ↗</a>
-      <a class="btn btn-ghost" href="#proof">See the proof ↓</a>
+    <div class="eyebrow" data-reveal>DABBA STUDIO</div>
+    <h1 class="display" id="hero-title">
+      <span class="mask"><span>Requirements in.</span></span>
+      <span class="mask"><span class="accent">Decisions out.</span></span>
+    </h1>
+    <p class="lede" data-reveal style="--d:220ms">
+      A local-first agentic workspace that turns an RFP into discovery, a PRD, an
+      architecture, a backlog and a business case. Every artifact is recorded with the
+      phase, the command and the model that produced it — and the whole analysis ships as
+      <strong>one document a client can actually read</strong>.
+    </p>
+    <div class="hero-cta" data-reveal style="--d:320ms">
+      <a class="btn btn-primary" href="#download">Download for Mac ↓</a>
+      <a class="btn btn-ghost" href="#system">See how it runs</a>
     </div>
 
-    <div class="pipeline-panel" id="system">
+    <div class="pipeline-panel" id="system" data-reveal style="--d:400ms">
       <div class="pipeline-top">
-        <span class="eyebrow" style="margin:0">Five chained agents · persisted state · byok</span>
+        <span class="eyebrow" style="margin:0">Five chained phases · one optional sixth · persisted state · byok</span>
         <span class="live-dot">Live pipeline</span>
       </div>
       <div class="diagram-wrap" id="diagram-wrap">
         <svg class="connectors" id="connectors" aria-hidden="true"></svg>
         <div class="pipeline-grid">
-          <div class="io-card input-node" id="input-card">
+          <div class="io-card" id="input-card">
             <span class="eyebrow">Input</span>
             <span class="big">RFP</span>
-            <span class="small">PDF · DOCX · MD</span>
+            <span class="small">PDF · DOCX · HTML · MD</span>
           </div>
-          <div class="phase-list">
-            <div class="phase-row"><span class="num">01</span><span class="name">Discovery</span><span class="who">Natasha</span><span class="phase-light"></span></div>
-            <div class="phase-row"><span class="num">02</span><span class="name">PRD</span><span class="who">Vision</span><span class="phase-light"></span></div>
-            <div class="phase-row"><span class="num">03</span><span class="name">Architecture</span><span class="who">Tony</span><span class="phase-light"></span></div>
-            <div class="phase-row"><span class="num">04</span><span class="name">Backlog</span><span class="who">Steve</span><span class="phase-light"></span></div>
-            <div class="phase-row"><span class="num">05</span><span class="name">Business case</span><span class="who">Pepper</span><span class="phase-light"></span></div>
+          <div class="phase-list" id="phase-list">
+            <div class="phase-row"><span class="num">01</span><span class="name">Discovery</span><span class="who">Natasha</span></div>
+            <div class="phase-row"><span class="num">02</span><span class="name">PRD</span><span class="who">Vision</span></div>
+            <div class="phase-row"><span class="num">03</span><span class="name">Architecture</span><span class="who">Tony</span></div>
+            <div class="phase-row"><span class="num">04</span><span class="name">Backlog</span><span class="who">Steve</span></div>
+            <div class="phase-row"><span class="num">05</span><span class="name">Business case</span><span class="who">Pepper</span></div>
+            <div class="phase-row optional"><span class="num">06</span><span class="name">Proposal</span><span class="opt-flag">Optional</span><span class="who">Nick</span></div>
           </div>
-          <div class="io-card output-node" id="output-card">
+          <div class="io-card" id="output-card">
             <span class="eyebrow">Output</span>
             <span class="big">One document</span>
             <span class="small">HTML report + SQLite trace</span>
           </div>
         </div>
       </div>
-      <p class="pipeline-caption">The input travels the chain. <strong>The context never gets dropped.</strong></p>
+      <p class="pipeline-caption">The input travels the chain on its own. <strong>The context never gets dropped.</strong></p>
     </div>
 
     <div class="marquee" aria-hidden="true">
-      <span class="marquee-track">LOCAL-FIRST ✳ TRACEABLE ✳ FIVE PHASES ✳ FREE-MODEL FRIENDLY ✳ BYOK ✳ LOCAL-FIRST ✳ TRACEABLE ✳ FIVE PHASES ✳ FREE-MODEL FRIENDLY ✳ BYOK ✳&nbsp;</span>
+      <span class="marquee-track">LOCAL-FIRST ✳ TRACEABLE ✳ SIX AGENTS ✳ BYOK ✳ FREE-MODEL FRIENDLY ✳ ONE DOCUMENT ✳ LOCAL-FIRST ✳ TRACEABLE ✳ SIX AGENTS ✳ BYOK ✳ FREE-MODEL FRIENDLY ✳ ONE DOCUMENT ✳&nbsp;</span>
     </div>
   </section>
 
   <section class="split wrap">
-    <div>
+    <div data-reveal>
       <div class="eyebrow">01 / The shift</div>
       <h2 class="display">Make the method<br>repeatable.</h2>
     </div>
-    <div>
-      <p class="body-copy">The method already worked. Five specialists, each with a clear scope, producing artifacts in the right order.</p>
-      <p class="body-copy">What was expensive was the driving: a person had to trigger every phase, carry context from one to the next and stitch the output together. DABBA moves that orchestration into the system — without changing the method.</p>
+    <div data-reveal style="--d:120ms">
+      <p class="body-copy">The method already existed and worked. Five specialists, each with their own scope, producing artifacts in the right order.</p>
+      <p class="body-copy">What was expensive was the driving — someone had to trigger each phase, carry context from one to the next, and stitch together at the end what ended up scattered across loose files. Delivery quality depended on who was driving.</p>
+      <p class="body-copy">DABBA moves that orchestration into the system. The chain itself is untouched: same phases, same order, same personas, same commands.</p>
       <p class="quote">"The value wasn't locked in the agents.<br><strong>It was locked in the person who knew how to drive them.</strong>"</p>
     </div>
   </section>
 
-  <section class="wrap" id="proof">
-    <div class="eyebrow">02 / Verified run</div>
-    <div class="stats-band" style="margin-top:24px">
-      <div class="stat"><div class="num">5/5</div><div class="label">Phases completed</div></div>
-      <div class="stat"><div class="num">0</div><div class="label">Manual interventions</div></div>
-      <div class="stat"><div class="num">7m 15s</div><div class="label">End-to-end runtime</div></div>
+  <section class="wrap">
+    <div class="eyebrow" data-reveal>02 / What changed</div>
+    <h2 class="display" data-reveal style="--d:80ms">Same method.<br>Different machinery.</h2>
+    <div class="ba-grid">
+      <div class="ba-card" data-reveal style="--d:160ms">
+        <h4>Before</h4>
+        <div class="ba-line"><span class="k">Driving</span><span class="v">A person, phase by phase</span></div>
+        <div class="ba-line"><span class="k">State</span><span class="v">Loose .md files on someone's disk</span></div>
+        <div class="ba-line"><span class="k">Delivery</span><span class="v">A folder handed over as-is</span></div>
+        <div class="ba-line"><span class="k">Audit</span><span class="v">Whatever anyone remembered</span></div>
+      </div>
+      <div class="ba-card after" data-reveal style="--d:260ms">
+        <h4>With DABBA</h4>
+        <div class="ba-line"><span class="k">Driving</span><span class="v">The agent-server chains it</span></div>
+        <div class="ba-line"><span class="k">State</span><span class="v">Queryable SQLite, every run kept</span></div>
+        <div class="ba-line"><span class="k">Delivery</span><span class="v">One consolidated document</span></div>
+        <div class="ba-line"><span class="k">Audit</span><span class="v">Phase, command and model per artifact</span></div>
+      </div>
     </div>
-    <div class="stats-footnote"><span class="dot"></span>Real sample RFP · OpenRouter · free models with fallback</div>
+  </section>
+
+  <section class="wrap" id="value">
+    <div class="eyebrow" data-reveal>03 / What you get</div>
+    <h2 class="display" data-reveal style="--d:80ms">Four things that<br>survive review.</h2>
+    <div class="value-grid">
+      <div class="value-card" data-reveal style="--d:140ms">
+        <div class="vnum">01</div>
+        <h3>Analysis that doesn't depend on who drives it</h3>
+        <p>Whoever attaches the RFP doesn't need to know the phase order, or how to carry context from one phase to the next. The pipeline does both.</p>
+      </div>
+      <div class="value-card" data-reveal style="--d:220ms">
+        <div class="vnum">02</div>
+        <h3>Traceability you can actually audit</h3>
+        <p>Every artifact is recorded with the phase, the command and the model that generated it. You can show exactly how a conclusion was produced — and the report flags requirement IDs cited downstream that were never defined upstream.</p>
+      </div>
+      <div class="value-card" data-reveal style="--d:300ms">
+        <div class="vnum">03</div>
+        <h3>Delivery in one piece</h3>
+        <p>A navigable document carrying the full content of every phase, diagrams rendered and all — not a summary, and not a folder of loose files. It opens from disk with no server and no network.</p>
+      </div>
+      <div class="value-card" data-reveal style="--d:380ms">
+        <div class="vnum">04</div>
+        <h3>Cost under control</h3>
+        <p>Runs on your own key. Gemini, Anthropic, or OpenRouter's free models with automatic fallback when one errors, rate-limits or runs out of quota.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="proof">
+    <div class="eyebrow" data-reveal>04 / Verified run</div>
+    <h2 class="display" data-reveal style="--d:80ms">Measured, not claimed.</h2>
+    <p class="section-lede" data-reveal style="--d:140ms">A real end-to-end run from a sample RFP, start to delivered document, with no human touching it after the upload.</p>
+    <div class="stats-band" id="stats" data-reveal style="margin-top:40px; --d:200ms">
+      <!-- The true values are in the markup, not the script. If JS never runs
+           the visitor reads the real result; the count-up starts from zero
+           only once it is actually going to animate. The earlier way round
+           left "0/5 phases completed" on screen whenever the script failed —
+           a wrong number, which is worse than no number. -->
+      <div class="stat"><div class="num" data-count="5" data-suffix="/5">5/5</div><div class="label">Phases completed</div></div>
+      <div class="stat"><div class="num" data-count="0">0</div><div class="label">Manual interventions</div></div>
+      <div class="stat"><div class="num" data-time="435">7m 15s</div><div class="label">End-to-end runtime</div></div>
+    </div>
+    <div class="stats-footnote" data-reveal style="--d:280ms"><span class="dot"></span>Sample RFP · OpenRouter · free models with automatic fallback</div>
+  </section>
+
+  <section class="wrap">
+    <div class="eyebrow" data-reveal>05 / The hard part</div>
+    <h2 class="display" data-reveal style="--d:80ms">Built to survive<br>a small model.</h2>
+    <p class="section-lede" data-reveal style="--d:140ms">
+      A weak model doesn't fail loudly — it quietly writes a generic project instead. Most of
+      the machinery in this pipeline exists to catch exactly that, deterministically, in code
+      rather than by asking the model nicely.
+    </p>
+    <div class="fail-list">
+      <div class="fail-row" data-reveal style="--d:180ms">
+        <span class="fname">Domain drift</span>
+        <span class="fdesc">A phase handed too much context stops writing about your RFP and starts writing about a generic project. The source RFP is re-anchored into every phase, and the carried context is bounded, so a later phase can't inherit a drift it has no way to detect.</span>
+      </div>
+      <div class="fail-row" data-reveal style="--d:240ms">
+        <span class="fname">Persona echo</span>
+        <span class="fdesc">The model returns its own instructions instead of the artifact. Detected on the response, and the command is retried before the run continues with an empty chapter.</span>
+      </div>
+      <div class="fail-row" data-reveal style="--d:300ms">
+        <span class="fname">False clean bills of health</span>
+        <span class="fdesc">Asked to audit its own traceability, a model reports <code>Gaps Identified: None</code> regardless of the truth. So the check isn't asked for — it's computed from the stored artifacts and printed whether or not the model agrees.</span>
+      </div>
+      <div class="fail-row" data-reveal style="--d:360ms">
+        <span class="fname">Numbers in a proposal</span>
+        <span class="fdesc">The optional sixth agent writes the commercial narrative and is forbidden from emitting a single figure. Team, hours and cost are computed from the stored staffing plan and your rate card, then inserted after the prose is written.</span>
+      </div>
+    </div>
   </section>
 
   <section class="wrap" id="architecture">
-    <div class="eyebrow">03 / Under the hood</div>
-    <h2 class="display">One system.<br>Four layers.</h2>
-    <div class="layers" style="margin-top:36px">
-      <div class="layer-row">
+    <div class="eyebrow" data-reveal>06 / Under the hood</div>
+    <h2 class="display" data-reveal style="--d:80ms">One system.<br>Four layers.</h2>
+    <div class="layers" style="margin-top:40px">
+      <div class="layer-row" data-reveal style="--d:140ms">
         <span class="num">01</span>
         <span class="title">DABBA Studio</span>
-        <span class="desc">React interface · chat · pipeline · artifacts</span>
+        <span class="desc">React interface · attach the RFP, follow the phases, open the result</span>
         <span class="tag">Interface</span>
       </div>
-      <div class="layer-row">
+      <div class="layer-row" data-reveal style="--d:200ms">
         <span class="num">02</span>
         <span class="title">DABBA Agents</span>
-        <span class="desc">Node / TypeScript · five specialist personas · execution</span>
+        <span class="desc">Node / TypeScript · six specialist personas · chained command execution</span>
         <span class="tag">Intelligence</span>
       </div>
-      <div class="layer-row">
+      <div class="layer-row" data-reveal style="--d:260ms">
         <span class="num">03</span>
-        <span class="title">Memory + connectors</span>
-        <span class="desc">SQLite state · artifacts · Jira · Slack · BYOK models</span>
+        <span class="title">State + delivery</span>
+        <span class="desc">SQLite run history · artifacts · consolidated HTML report generation</span>
         <span class="tag">State</span>
       </div>
-      <div class="layer-row">
+      <div class="layer-row" data-reveal style="--d:320ms">
         <span class="num">04</span>
         <span class="title">Desktop shell</span>
-        <span class="desc">Tauri native app · supervised sidecar · packaged delivery</span>
+        <span class="desc">Tauri native app · supervised sidecar · packaged, self-starting delivery</span>
         <span class="tag">Runtime</span>
       </div>
     </div>
+  </section>
 
-    <div class="download-panel" id="download">
+  <section class="wrap">
+    <div class="eyebrow" data-reveal>07 / Your key, your machine</div>
+    <h2 class="display" data-reveal style="--d:80ms">Local-first,<br>bring your own key.</h2>
+    <div class="byok-grid">
+      <div>
+        <p class="section-lede" data-reveal style="margin-bottom:26px">
+          Three providers are supported. When more than one key is present, this is the order
+          of preference — and if a free model errors, rate-limits or runs out of quota, the
+          next one is tried automatically.
+        </p>
+        <div class="provider-chain">
+          <div class="provider" data-reveal style="--d:160ms">
+            <span class="p-order">01</span><span class="p-name">Gemini</span>
+            <span class="p-note">Recommended for client work</span>
+          </div>
+          <div class="provider" data-reveal style="--d:220ms">
+            <span class="p-order">02</span><span class="p-name">OpenRouter</span>
+            <span class="p-note">Free tier · auto fallback</span>
+          </div>
+          <div class="provider" data-reveal style="--d:280ms">
+            <span class="p-order">03</span><span class="p-name">Anthropic</span>
+            <span class="p-note">Claude</span>
+          </div>
+        </div>
+      </div>
+      <div class="local-box" data-reveal style="--d:200ms">
+        <h4>Nothing leaves the machine</h4>
+        <p>
+          Except the model call itself. The run history, every artifact and every generated
+          report stay in a local SQLite file and a local folder, at the OS-standard location:
+        </p>
+        <div class="local-path">~/Library/Application&nbsp;Support/DABBA/</div>
+        <p style="margin-top:16px">
+          No account, no server to sign into, no telemetry. Delete the folder and the history
+          is gone.
+        </p>
+      </div>
+    </div>
+
+    <div class="download-panel" id="download" data-reveal>
       <div class="eyebrow">Get DABBA</div>
       <h3 id="dl-title">Download for Mac</h3>
       <p id="dl-copy">Native desktop app for macOS on Apple Silicon (M1 or newer). Ships as an ad-hoc signed .dmg (not notarized) — drag DABBA.app to Applications, then right-click → Open on first launch.</p>
@@ -300,10 +575,15 @@
   </section>
 
   <section class="cta-band wrap">
-    <span class="eyebrow">The next workspace for complex thinking</span>
-    <h2 class="display">Stop driving<br>the pipeline.</h2>
-    <div class="hero-cta" style="justify-content:center; margin-top:32px">
-      <a class="btn btn-primary" href="https://github.com/juliopessan/DABBA-STUDIO" target="_blank" rel="noopener">Explore on GitHub ↗</a>
+    <span class="eyebrow" data-reveal>The next workspace for complex thinking</span>
+    <h2 class="display" id="cta-title">
+      <span class="mask"><span>Stop driving</span></span>
+      <span class="mask"><span>the pipeline.</span></span>
+    </h2>
+    <p class="sub" data-reveal style="--d:200ms">Attach the RFP. Six specialists take it from there, and hand back something you can put in front of a client.</p>
+    <div class="hero-cta" style="justify-content:center; margin-top:32px" data-reveal>
+      <a class="btn btn-primary" href="#download">Download for Mac ↓</a>
+      <a class="btn btn-ghost" href="https://github.com/juliopessan/DABBA-STUDIO" target="_blank" rel="noopener">Explore on GitHub ↗</a>
     </div>
   </section>
 </main>
@@ -314,6 +594,323 @@
 </footer>
 
 <script>
+  // ---------- Reveal on scroll ----------
+  // One observer for the whole page. Elements unobserve themselves once shown,
+  // so nothing keeps firing during the rest of the scroll.
+  (function () {
+    var items = document.querySelectorAll("[data-reveal], #hero-title .mask, #cta-title .mask");
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function showAll() {
+      items.forEach(function (el) { el.classList.add("in"); });
+    }
+
+    if (reduce || !("IntersectionObserver" in window)) { showAll(); return; }
+
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        e.target.classList.add("in");
+        io.unobserve(e.target);
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+
+    items.forEach(function (el, i) {
+      // The hero is above the fold and should not wait for a scroll event that
+      // may never come; stagger it in on load instead.
+      if (el.closest(".hero") || el.closest("#hero-title")) {
+        setTimeout(function () { el.classList.add("in"); }, 80 + i * 60);
+      } else {
+        io.observe(el);
+      }
+    });
+
+    // Failsafe: if anything above misbehaves, the page must not stay blank.
+    // Deliberately long — a short timer here fires while a slow reader is
+    // still on the first screen and pops the whole page in at once, which
+    // defeats the choreography it is meant to protect.
+    setTimeout(showAll, 10000);
+  })();
+</script>
+
+<script>
+  // ---------- The route, and the packet that travels it ----------
+  // The first version drew Input → every phase and every phase → Output: 12
+  // curves fanning in and out. That is the wrong picture. The pipeline is a
+  // chain — the RFP enters at the top, passes through each phase in order, and
+  // leaves as one document — so the diagram is now one line in, one spine down
+  // through the phases, one line out.
+  //
+  // Geometry is measured from the real layout (getBoundingClientRect) rather
+  // than hardcoded, so it survives font reflow and every viewport width. The
+  // packet then rides that exact path via getPointAtLength, which is why the
+  // dot, the trail and the row highlight can never drift apart: all three read
+  // from a single position along a single path.
+  (function () {
+    var wrap = document.getElementById("diagram-wrap");
+    var svg = document.getElementById("connectors");
+    var inputEl = document.getElementById("input-card");
+    var outputEl = document.getElementById("output-card");
+    var panel = document.getElementById("system");
+    if (!wrap || !svg || !inputEl || !outputEl || !panel) return;
+
+    var NS = "http://www.w3.org/2000/svg";
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var rows = [], route = null, flow = null, packet = null, routeLen = 0;
+    var inLen = 0, spineEndLen = 0; // segment boundaries along the route
+    var raf = null, t0 = 0;
+    var CYCLE = 5200;   // one full traversal
+    var REST = 900;     // beat of stillness before it runs again
+
+    function anchor(el, side) {
+      var r = el.getBoundingClientRect();
+      var w = wrap.getBoundingClientRect();
+      return {
+        x: (side === "right" ? r.right : r.left) - w.left,
+        y: r.top - w.top + r.height / 2,
+      };
+    }
+
+    function el(name, attrs) {
+      var n = document.createElementNS(NS, name);
+      for (var k in attrs) n.setAttribute(k, attrs[k]);
+      return n;
+    }
+
+    function clearHighlights() {
+      rows.forEach(function (r) { r.el.classList.remove("hot"); });
+      inputEl.classList.remove("hot");
+      outputEl.classList.remove("hot");
+    }
+
+    function draw() {
+      svg.innerHTML = "";
+      route = flow = packet = null;
+      rows = [];
+      if (window.matchMedia("(max-width: 900px)").matches) return;
+
+      var w = wrap.getBoundingClientRect();
+      svg.setAttribute("viewBox", "0 0 " + w.width + " " + w.height);
+
+      var rowEls = Array.prototype.slice.call(wrap.querySelectorAll(".phase-row"));
+      if (!rowEls.length) return;
+
+      var inPt = anchor(inputEl, "right");
+      var outPt = anchor(outputEl, "left");
+      var firstLeft = anchor(rowEls[0], "left");
+      var lastLeft = anchor(rowEls[rowEls.length - 1], "left");
+      // The spine sits in the gutter between the input card and the rows.
+      var spineX = inPt.x + (firstLeft.x - inPt.x) * 0.62;
+
+      rows = rowEls.map(function (r) {
+        return { el: r, y: anchor(r, "left").y, left: anchor(r, "left").x };
+      });
+
+      // Stubs from the spine to each row, drawn first so the spine sits on top.
+      rows.forEach(function (r) {
+        svg.appendChild(el("path", {
+          class: "stub",
+          d: "M" + spineX + " " + r.y + " L " + r.left + " " + r.y,
+        }));
+      });
+
+      // Built as three named segments rather than one opaque `d`, because the
+      // packet needs to know which part of the route it is on. The entry curve
+      // rises from the middle of the input card up to the first row, so it
+      // passes alongside rows 02 and 03 on the way — matching rows by
+      // proximity across the whole route made the highlight run
+      // Architecture → PRD → Discovery before descending. Rows are only
+      // matched while the packet is on the spine.
+      var dIn =
+        "M" + inPt.x + " " + inPt.y +
+        " C " + (inPt.x + (spineX - inPt.x) * 0.6) + " " + inPt.y +
+        " " + spineX + " " + (inPt.y + (firstLeft.y - inPt.y) * 0.4) +
+        " " + spineX + " " + firstLeft.y;
+      var dSpine = " L " + spineX + " " + lastLeft.y;
+      var dOut =
+        " C " + spineX + " " + (lastLeft.y + (outPt.y - lastLeft.y) * 0.5) +
+        " " + (outPt.x - (outPt.x - spineX) * 0.5) + " " + outPt.y +
+        " " + outPt.x + " " + outPt.y;
+
+      var dFull = dIn + dSpine + dOut;
+      route = el("path", { class: "rail", d: dFull });
+      svg.appendChild(route);
+
+      // Measured off a throwaway path so the boundaries are exact rather than
+      // guessed from a proportion of the total.
+      var probe = el("path", { d: dIn });
+      svg.appendChild(probe);
+      inLen = probe.getTotalLength();
+      probe.setAttribute("d", dIn + dSpine);
+      spineEndLen = probe.getTotalLength();
+      svg.removeChild(probe);
+
+      flow = el("path", { class: "flow", d: dFull });
+      svg.appendChild(flow);
+
+      packet = el("g", { class: "packet" });
+      packet.appendChild(el("circle", { class: "packet-glow", r: 11, cx: 0, cy: 0 }));
+      packet.appendChild(el("circle", { class: "packet-core", r: 3.6, cx: 0, cy: 0 }));
+      svg.appendChild(packet);
+
+      routeLen = route.getTotalLength();
+      flow.style.strokeDasharray = routeLen;
+      flow.style.strokeDashoffset = routeLen;
+
+      // Park the packet at the start of the route immediately, never at the
+      // SVG origin. requestAnimationFrame is suspended in a backgrounded or
+      // minimised window, so "the first frame will position it" is not a safe
+      // assumption — without this the resting state is a stray dot in the
+      // top-left corner of the panel. Same failure mode the app's own pipeline
+      // timeline was hardened against.
+      place(reduce ? routeLen : 0);
+      if (reduce) {
+        // Static, honest end state: the whole route drawn, packet parked at
+        // the output, nothing moving.
+        flow.style.strokeDashoffset = 0;
+      }
+    }
+
+    function place(len) {
+      if (!route || !packet) return;
+      var p = route.getPointAtLength(Math.max(0, Math.min(routeLen, len)));
+      packet.setAttribute("transform", "translate(" + p.x + "," + p.y + ")");
+      return p;
+    }
+
+    function frame(now) {
+      if (!route) { raf = null; return; }
+      if (!t0) t0 = now;
+      var elapsed = (now - t0) % (CYCLE + REST);
+      var t = Math.min(1, elapsed / CYCLE);
+
+      // Ease so the packet settles into each end rather than snapping.
+      var eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      var len = eased * routeLen;
+
+      flow.style.strokeDashoffset = routeLen - len;
+      var p = place(len);
+
+      // Highlight whatever the packet is currently passing, derived from its
+      // position on the route — never from a separate timer that could fall
+      // out of step with it. Which element can light depends on the segment:
+      // the entry curve belongs to the input card, the spine to the rows, the
+      // exit curve to the output card.
+      clearHighlights();
+      if (len < inLen) {
+        inputEl.classList.add("hot");
+      } else if (len <= spineEndLen) {
+        for (var i = 0; i < rows.length; i++) {
+          if (Math.abs(rows[i].y - p.y) < 22) { rows[i].el.classList.add("hot"); break; }
+        }
+      } else {
+        outputEl.classList.add("hot");
+      }
+      raf = requestAnimationFrame(frame);
+    }
+
+    function start() {
+      if (reduce || raf || !route) return;
+      t0 = 0;
+      raf = requestAnimationFrame(frame);
+    }
+    function stop() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = null;
+      clearHighlights();
+      if (flow) flow.style.strokeDashoffset = routeLen;
+    }
+
+    function rebuild() {
+      var wasRunning = !!raf;
+      stop();
+      draw();
+      if (wasRunning) start();
+    }
+
+    draw();
+    window.addEventListener("resize", rebuild);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(rebuild);
+
+    // Only animates while the panel is actually on screen — an animation
+    // nobody is looking at is just battery.
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) {
+        entries[0].isIntersecting ? start() : stop();
+      }, { threshold: 0.2 }).observe(panel);
+    } else {
+      start();
+    }
+  })();
+</script>
+
+<script>
+  // ---------- Counters ----------
+  // The proof numbers count up once, when the band scrolls into view. "0
+  // manual interventions" is deliberately not animated — counting up to zero
+  // is nonsense, and that particular zero is the whole point.
+  (function () {
+    var band = document.getElementById("stats");
+    if (!band) return;
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function fmtTime(total) {
+      var m = Math.floor(total / 60), s = total % 60;
+      return m + "m " + String(s).padStart(2, "0") + "s";
+    }
+
+    function run() {
+      band.querySelectorAll("[data-count], [data-time]").forEach(function (el) {
+        var isTime = el.hasAttribute("data-time");
+        var target = parseInt(isTime ? el.getAttribute("data-time") : el.getAttribute("data-count"), 10);
+        var suffix = el.getAttribute("data-suffix") || "";
+        if (reduce || target === 0) {
+          el.textContent = (isTime ? fmtTime(target) : target) + suffix;
+          return;
+        }
+        // Only now is the value knocked down to zero — up to this point the
+        // markup has been showing the real figure.
+        el.textContent = (isTime ? fmtTime(0) : 0) + suffix;
+        var dur = 1100, t0 = performance.now();
+        (function frame(now) {
+          var p = Math.min(1, (now - t0) / dur);
+          var eased = 1 - Math.pow(1 - p, 3);
+          var v = Math.round(target * eased);
+          el.textContent = (isTime ? fmtTime(v) : v) + suffix;
+          if (p < 1) requestAnimationFrame(frame);
+        })(t0);
+      });
+    }
+
+    if (!("IntersectionObserver" in window)) { run(); return; }
+    var io = new IntersectionObserver(function (entries) {
+      if (!entries[0].isIntersecting) return;
+      run();
+      io.disconnect();
+    }, { threshold: 0.4 });
+    io.observe(band);
+  })();
+</script>
+
+<script>
+  // ---------- Sticky header state ----------
+  (function () {
+    var header = document.querySelector("header.site");
+    if (!header) return;
+    var ticking = false;
+    window.addEventListener("scroll", function () {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function () {
+        header.classList.toggle("stuck", window.scrollY > 12);
+        ticking = false;
+      });
+    }, { passive: true });
+  })();
+</script>
+
+<script>
+  // ---------- Download gate ----------
   // "Exclusivo para MacBook": client-side platform check gates the download
   // CTA. This detects "some flavour of Mac", not specifically Apple Silicon —
   // there is no reliable, honest way to distinguish arm64 vs Intel Macs from
@@ -344,62 +941,6 @@
         '<a class="btn btn-ghost" href="' + REPO_URL + '" target="_blank" rel="noopener">View source on GitHub ↗</a>';
       note.textContent = "Windows/Linux packaging is on the roadmap, not shipped yet.";
     }
-  })();
-</script>
-
-<script>
-  // Draws the animated connector lines between the Input card, each phase
-  // row and the Output card. Computed from actual layout (getBoundingClientRect)
-  // rather than fixed coordinates, so the curves stay correct across screen
-  // sizes and font-loading reflows instead of only matching one fixed viewBox.
-  (function () {
-    var wrap = document.getElementById("diagram-wrap");
-    var svg = document.getElementById("connectors");
-    var inputEl = document.getElementById("input-card");
-    var outputEl = document.getElementById("output-card");
-    if (!wrap || !svg || !inputEl || !outputEl) return;
-
-    function anchor(el, side) {
-      var r = el.getBoundingClientRect();
-      var w = wrap.getBoundingClientRect();
-      return {
-        x: (side === "right" ? r.right : r.left) - w.left,
-        y: r.top - w.top + r.height / 2,
-      };
-    }
-
-    function draw() {
-      if (window.matchMedia("(max-width: 860px)").matches) {
-        svg.innerHTML = "";
-        return;
-      }
-      var w = wrap.getBoundingClientRect();
-      svg.setAttribute("viewBox", "0 0 " + w.width + " " + w.height);
-
-      var inPt = anchor(inputEl, "right");
-      var outPt = anchor(outputEl, "left");
-      var phases = wrap.querySelectorAll(".phase-row");
-      var html = "";
-      phases.forEach(function (row) {
-        var left = anchor(row, "left");
-        var right = anchor(row, "right");
-        var c1 = inPt.x + (left.x - inPt.x) * 0.55;
-        var c2 = left.x - (left.x - inPt.x) * 0.55;
-        html +=
-          '<path d="M' + inPt.x + " " + inPt.y +
-          " C " + c1 + " " + inPt.y + " " + c2 + " " + left.y + " " + left.x + " " + left.y + '"></path>';
-        var c3 = right.x + (outPt.x - right.x) * 0.55;
-        var c4 = outPt.x - (outPt.x - right.x) * 0.55;
-        html +=
-          '<path class="route" d="M' + right.x + " " + right.y +
-          " C " + c3 + " " + right.y + " " + c4 + " " + outPt.y + " " + outPt.x + " " + outPt.y + '"></path>';
-      });
-      svg.innerHTML = html;
-    }
-
-    draw();
-    window.addEventListener("resize", draw);
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
   })();
 </script>
 
