@@ -13,8 +13,23 @@ import { markdownToHtml, unwrapOuterCodeFence } from "../src/pipeline/markdown.j
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const fixture = (name: string) => readFileSync(path.join(FIXTURES, name), "utf-8");
 
+// Non-mermaid code (JSON schemas, box drawings, stray fences) still renders
+// as plain <pre><code>. A genuine ```mermaid fence renders as
+// `<pre class="mermaid">` instead — undecorated, Mermaid's own documented
+// convention for what its runtime scans for (see mermaidRuntime.ts) — so it
+// can be picked up and replaced with rendered SVG in the browser. Most tests
+// below only care "is this content preformatted", so `preBlocks` matches
+// either wrapper; the handful that must confirm a diagram specifically went
+// through the Mermaid path use `mermaidBlocks`.
 function preBlocks(html: string): string[] {
-  return [...html.matchAll(/<pre><code>([\s\S]*?)<\/code><\/pre>/g)].map((m) => m[1]);
+  return [
+    ...[...html.matchAll(/<pre><code>([\s\S]*?)<\/code><\/pre>/g)].map((m) => m[1]),
+    ...[...html.matchAll(/<pre class="mermaid">([\s\S]*?)<\/pre>/g)].map((m) => m[1]),
+  ];
+}
+
+function mermaidBlocks(html: string): string[] {
+  return [...html.matchAll(/<pre class="mermaid">([\s\S]*?)<\/pre>/g)].map((m) => m[1]);
 }
 
 describe("code blocks", () => {
@@ -23,15 +38,28 @@ describe("code blocks", () => {
     // "\n" again, putting a blank line between every row of every diagram in
     // every report ever produced.
     const html = markdownToHtml("```mermaid\nflowchart TD\n  A --> B\n  B --> C\n```");
-    const body = preBlocks(html)[0];
+    const body = mermaidBlocks(html)[0];
     assert.equal(body.split("\n").filter((l) => l.trim() === "").length, 2, "only the leading/trailing newline");
     assert.match(body, /flowchart TD\n {2}A --&gt; B\n {2}B --&gt; C/);
   });
 
-  test("keeps a genuine mermaid diagram as a code block", () => {
+  test("renders a genuine mermaid diagram through the mermaid runtime, not as a table", () => {
     const html = markdownToHtml("```mermaid\nerDiagram\n  USER ||--o{ ORDER : places\n```");
-    assert.equal(preBlocks(html).length, 1);
+    assert.equal(mermaidBlocks(html).length, 1, "must use the mermaid wrapper the client-side runtime scans for");
     assert.equal(html.includes("<table"), false);
+  });
+
+  test("an unfenced ASCII drawing never gets the mermaid wrapper", () => {
+    // "mermaid" is the only fence language kept as literal code (see
+    // unwrapOuterCodeFence) — every other fenced language is unwrapped, so
+    // the generic <pre><code> box is reserved in practice for content the
+    // box-drawing detector catches unfenced. That detector and the mermaid
+    // path are separate branches with no shared state; this pins down that
+    // an edit to one can't silently start tagging the other's output as a
+    // diagram for the client-side runtime to try (and fail) to parse.
+    const html = markdownToHtml("[Start] --> [End]\n         │\n         ▼\n[Done]");
+    assert.equal(mermaidBlocks(html).length, 0);
+    assert.match(html, /<pre><code>/);
   });
 });
 

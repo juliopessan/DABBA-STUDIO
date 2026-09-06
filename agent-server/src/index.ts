@@ -5,6 +5,7 @@ import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { isSea } from "node:sea";
 import { initAgents, listAgents, getAgent } from "./agents/registry.js";
+import { loadMermaidRuntime } from "./pipeline/mermaidRuntime.js";
 import { runAgentCommand } from "./llm/provider.js";
 import { extractText, isSupportedExtension } from "./upload/extractText.js";
 import { startPipeline, runProposal, PIPELINE_STEPS } from "./pipeline/orchestrator.js";
@@ -201,7 +202,7 @@ app.post("/pipeline/:id/proposal", async (req, res) => {
   }
 });
 
-initAgents().then(() => {
+Promise.all([initAgents(), loadMermaidRuntime()]).then(() => {
   seedBenchmarkRates();
   app.listen(PORT, () => {
     console.log(`agent-server listening on http://localhost:${PORT}`);

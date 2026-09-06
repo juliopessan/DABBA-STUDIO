@@ -98,6 +98,16 @@ async function main() {
   const assets = { "personas-manifest.json": manifestPath };
   for (const id of personaIds) assets[`persona-${id}.md`] = path.join(personasDir, `${id}.md`);
 
+  // The Mermaid runtime is inlined into every report.html (see htmlReport.ts)
+  // so a report opened from disk with no network still renders its diagrams —
+  // the same reasoning that has the favicon embedded as a data URI. Sourced
+  // from node_modules (an actual npm dependency, not a hand-downloaded file)
+  // so the exact version is declared and lockfile-pinned rather than living
+  // only as a comment; embedded as a SEA asset for the identical reason
+  // personas are: the packaged binary has no "next to it" directory to read
+  // a file from at runtime.
+  assets["mermaid.min.js"] = path.join(ROOT, "node_modules", "mermaid", "dist", "mermaid.min.js");
+
   const seaConfigPath = path.join(BUILD_DIR, "sea-config.json");
   const blobPath = path.join(BUILD_DIR, "sea-prep.blob");
   writeFileSync(

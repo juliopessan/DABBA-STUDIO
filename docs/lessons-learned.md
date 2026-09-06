@@ -258,3 +258,49 @@ carries a Grade column and tells the reader to check it, because a consultant
 can correct it in seconds and nobody can correct what they cannot see. "Lead"
 now maps to Manager, a hands-on delivery grade; "Architect" keeps the higher
 one.
+
+---
+
+## [RENDERING] Mermaid diagrams are rendered client-side, inlined for offline use
+
+**Evidence:** a real report from an architecture-heavy run carried 11 Mermaid
+blocks (`architecture-beta`, `sequenceDiagram`, `erDiagram`, `gantt`,
+`mindmap`, `flowchart`), all shown as literal source text — reasonable for a
+plain-markdown viewer, odd for a client deliverable. The user reported this
+directly as a rendering defect.
+
+**Lesson:** offline capability is a real constraint, not a nice-to-have — the
+report is opened from disk with no server and no network often enough that
+this project already embeds its favicon as a data URI for exactly that
+reason. A `<script src="https://cdn...">` for Mermaid would leave every
+diagram blank the moment that assumption holds, so the whole runtime is
+inlined instead (`mermaidRuntime.ts`, embedded as a SEA asset the same way
+personas are). There is no smaller self-contained option: Mermaid's own
+"slim" ESM build is a ~30KB loader that fetches diagram-type chunks over the
+network on demand, which fails the identical requirement a CDN link would.
+
+**Correction to an earlier estimate:** this same file previously guessed
+"~1MB, reports grow to ~1.3MB" before the actual bundle was measured. The real
+number is 3.4MB (verified via `data.jsdelivr.com`'s file listing across every
+`/dist/*.js` build Mermaid ships) — reports with diagrams grow to ~3.7MB, not
+~1.3MB. Measure before writing the number down a second time.
+
+**A second, easy-to-miss requirement:** the diagrams in this report use
+`architecture-beta`, a diagram type Mermaid only added in v11.1. Pinning an
+old "safe" major version would have silently failed on exactly the diagrams
+this project's own architect persona is instructed to produce. Confirmed
+11.17.2 (current stable) before pinning it.
+
+**Verified against the real report, not just the unit tests:** the markdown
+parser's fence-tagging is covered by `tests/markdown.test.ts` (a `mermaid`
+fence gets `<pre class="mermaid">`; everything else keeps the plain code box
+— see the "code blocks" suite). Actual browser rendering is not something a
+Node test can check, so it was verified separately in a live tab: 11/11
+diagrams produced a real SVG (correct `viewBox`, `role="graphics-document"`,
+matching node labels), zero fell back to Mermaid's own error rendering.
+
+**Security note:** `securityLevel: "strict"` in the Mermaid init call. The
+diagram source is model output acting on an untrusted RFP — the same reason
+raw HTML from the model is sanitised by allowlist elsewhere in this pipeline
+— so Mermaid's own HTML-in-label sanitisation stays on rather than being
+relaxed for convenience.

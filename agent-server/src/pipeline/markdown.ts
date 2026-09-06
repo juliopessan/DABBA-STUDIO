@@ -306,6 +306,13 @@ export function markdownToHtml(markdown: string): string {
   const lines = replaceLatex(stripEmoji(unwrapOuterCodeFence(markdown))).split("\n");
   const html: string[] = [];
   let inCodeBlock = false;
+  // A ```mermaid block renders through the Mermaid runtime instead of as a
+  // <pre><code> literal (see mermaidRuntime.ts): `<pre class="mermaid">`,
+  // undecorated, is Mermaid's own documented convention for what its
+  // `run()` call scans for. Every other fence keeps the plain code box —
+  // "mermaid" is still the only fence language these personas emit on
+  // purpose (see unwrapOuterCodeFence above), so nothing else qualifies.
+  let codeBlockIsMermaid = false;
   let paragraph: string[] = [];
   const listStack: ListFrame[] = [];
 
@@ -342,7 +349,7 @@ export function markdownToHtml(markdown: string): string {
       // rendered as literal content instead of prematurely ending the block.
       const fenceInfo = line.trim().slice(3).trim();
       if (inCodeBlock && fenceInfo === "") {
-        html.push("</code></pre>");
+        html.push(codeBlockIsMermaid ? "</pre>" : "</code></pre>");
         inCodeBlock = false;
         i++;
         continue;
@@ -350,7 +357,8 @@ export function markdownToHtml(markdown: string): string {
       if (!inCodeBlock) {
         flushParagraph();
         closeAllLists();
-        html.push("<pre><code>");
+        codeBlockIsMermaid = /^mermaid$/i.test(fenceInfo);
+        html.push(codeBlockIsMermaid ? '<pre class="mermaid">' : "<pre><code>");
         inCodeBlock = true;
         i++;
         continue;
@@ -381,7 +389,7 @@ export function markdownToHtml(markdown: string): string {
       inCodeBlock &&
       (/^-{3,}$/.test(line.trim()) || HTML_BLOCK_START.test(line.trim()) || /^#{2,6}\s/.test(line.trim()))
     ) {
-      html.push("</code></pre>");
+      html.push(codeBlockIsMermaid ? "</pre>" : "</code></pre>");
       inCodeBlock = false;
     }
 
@@ -529,7 +537,7 @@ export function markdownToHtml(markdown: string): string {
 
   flushParagraph();
   closeAllLists();
-  if (inCodeBlock) html.push("</code></pre>");
+  if (inCodeBlock) html.push(codeBlockIsMermaid ? "</pre>" : "</code></pre>");
 
   return html.join("\n");
 }

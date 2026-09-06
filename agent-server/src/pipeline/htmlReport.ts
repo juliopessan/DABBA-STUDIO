@@ -1,6 +1,7 @@
 import type { PipelineRun, PhaseArtifact } from "../db/sqlite.js";
 import { markdownToHtml } from "./markdown.js";
 import { findOrphanRequirements } from "./quality.js";
+import { getMermaidRuntime } from "./mermaidRuntime.js";
 
 const PHASE_LABELS: Record<string, string> = {
   discovery: "Discovery",
@@ -166,6 +167,61 @@ function buildQualityNotice(artifacts: PhaseArtifact[]): string {
       <p class="quality-body">These requirement IDs are referenced downstream but never defined in the PRD. Treat the statements built on them as unverified.</p>
       <ul>${items}</ul>
     </section>`;
+}
+
+// Inlines the whole Mermaid runtime as a <script> tag rather than a
+// <script src="https://...">: the report is a client deliverable often
+// opened straight off disk with no server and no network (the same reasoning
+// that has the favicon embedded as a data URI), and a CDN link would leave
+// every diagram blank the moment that assumption holds. The trade-off is
+// real and worth stating plainly — the runtime is ~3.4MB, so a report with
+// diagrams grows from roughly 300KB to roughly 3.7MB. There is no smaller
+// self-contained build: Mermaid's own slim ESM bundle is a ~30KB loader that
+// fetches its diagram-type chunks over the network on demand, which fails
+// the same offline requirement the CDN link would.
+//
+// `startOnLoad: false` plus an explicit `mermaid.run()` at the end of body,
+// rather than mermaid's own DOMContentLoaded-triggered auto-start: the
+// script tag is injected after every `.mermaid` element already exists in
+// the DOM, so there is nothing to race.
+function buildMermaidScript(): string {
+  const runtime = getMermaidRuntime();
+  if (!runtime) return ""; // Degrades to diagrams-as-source-text, not a crash.
+
+  return `
+<script>
+${runtime}
+</script>
+<script>
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "base",
+    securityLevel: "strict",
+    themeVariables: {
+      background: "#f2efe8",
+      primaryColor: "#e5e1d8",
+      primaryTextColor: "#11110f",
+      primaryBorderColor: "#d3cfc5",
+      lineColor: "#5c5952",
+      secondaryColor: "#f7ddd1",
+      secondaryTextColor: "#11110f",
+      secondaryBorderColor: "#d3cfc5",
+      tertiaryColor: "#f2efe8",
+      tertiaryTextColor: "#11110f",
+      noteBkgColor: "#f7ddd1",
+      noteTextColor: "#11110f",
+      noteBorderColor: "#c8481c",
+      fontFamily: "'Inter Tight', Helvetica, Arial, sans-serif",
+    },
+  });
+  mermaid.run({ querySelector: ".mermaid" }).catch(function (err) {
+    // A diagram the model wrote with genuinely invalid Mermaid syntax should
+    // not take the rest of the report down with it — Mermaid already leaves
+    // the failing element as an inert error message in place; this just
+    // keeps that failure out of a console a reader will never open.
+    console.error("mermaid render failed:", err);
+  });
+</script>`;
 }
 
 export function buildConsolidatedReport(run: PipelineRun, artifacts: PhaseArtifact[]): string {
@@ -383,6 +439,7 @@ section.phase {
 
     ${buildFooter(run, artifacts)}
   </div>
+${buildMermaidScript()}
 </body>
 </html>`;
 }

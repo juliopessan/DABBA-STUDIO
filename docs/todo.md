@@ -11,11 +11,12 @@ Speculation lives here. Once something is proven by a real run it graduates to
 
 ## Decisions waiting on the owner
 
-- [ ] **Render Mermaid diagrams, or keep showing the source?** A report carries
-      up to 13 Mermaid blocks, all displayed as source code. They are correctly
-      formatted now, but a client document showing diagram source is odd.
-      Rendering means inlining mermaid.js (~1MB per report, works offline) —
-      reports would grow from ~280KB to ~1.3MB. Not started; needs a call.
+- [x] **Render Mermaid diagrams, or keep showing the source?** Decided: render.
+      Done — see lessons-learned.md. Correction to the estimate above: the
+      only genuinely offline-capable Mermaid build is 3.4MB, not ~1MB;
+      reports with diagrams grow to ~3.7MB, not ~1.3MB. Verified against a
+      real report (11 diagrams, architecture-beta included): all 11 render
+      as actual SVG, zero left as source, zero error fallbacks.
 - [ ] **Paid-model tier for client-facing work.** Measured on the same RFP:
       Gemini ran 4.5x faster and produced 3.5x more content than the free
       OpenRouter model, with no formatting defects. The free tier stays useful
