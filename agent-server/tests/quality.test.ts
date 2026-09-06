@@ -131,3 +131,32 @@ describe("report shell", () => {
     assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a", "a real PNG signature");
   });
 });
+
+describe("report footer duration", () => {
+  test("a proposal run days after the analysis does not corrupt the elapsed time", async () => {
+    // Measured on a real run: the proposal is an opt-in terminal step,
+    // requested whenever — the gap between analysis finishing and someone
+    // asking for a proposal later showed up as "31579m 46s elapsed".
+    const { buildConsolidatedReport } = await import("../src/pipeline/htmlReport.js");
+    const run = {
+      id: "run-1",
+      project_name: "Test",
+      status: "done" as const,
+      created_at: "2026-01-01T10:00:00.000Z",
+      report_path: null,
+    };
+    const artifacts = [
+      artifact("discovery", "# Report"),
+      { ...artifact("business-case", "# Analysis"), created_at: "2026-01-01T10:07:15.000Z" },
+      // Requested three weeks later.
+      { ...artifact("proposal", "# Proposal"), agent_id: "proposal", created_at: "2026-01-22T09:00:00.000Z" },
+    ];
+    const html = buildConsolidatedReport(run, artifacts);
+    const line = html.match(/<p class="crew-line">(.*?)<\/p>/)?.[1] ?? "";
+
+    assert.match(line, /7m 15s elapsed/, "duration must reflect the analysis phases only");
+    assert.doesNotMatch(line, /\d{4,}m/, "no multi-day gap disguised as minutes");
+    assert.match(line, /\+ proposal/, "the proposal must still be acknowledged");
+    assert.match(line, /Nick/, "and its author credited");
+  });
+});

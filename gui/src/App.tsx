@@ -223,8 +223,9 @@ export default function App() {
             maxWidth: 560,
           }}
         >
-          Five specialists. Zero handoffs. One document your next client
-          actually reads.
+          Five specialists analyze. A sixth writes the proposal — and still
+          isn't allowed near the numbers. Zero handoffs. One document your
+          next client actually reads.
         </p>
         <div className="dabba-eyebrow" style={{ flexShrink: 0 }}>
           DABBA Studio

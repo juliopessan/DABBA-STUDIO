@@ -97,12 +97,23 @@ function buildFooter(run: PipelineRun, artifacts: PhaseArtifact[]): string {
         ? crew[0]
         : `${crew.slice(0, -1).join(", ")} and ${crew[crew.length - 1]}`;
 
+  // The proposal is an opt-in terminal step run whenever the user asks for it
+  // — hours, days or weeks after the analysis finished, not as a continuation
+  // of the timed run. Including it in the elapsed calculation produced
+  // "31579m 46s elapsed" on a real report: the gap between the analysis
+  // finishing and someone later requesting a proposal, presented as if it
+  // were pipeline execution time. Duration is measured over the analysis
+  // phases only; the proposal is credited in the crew line but not timed.
+  const timedArtifacts = artifacts.filter((a) => a.phase !== "proposal");
+  const hasProposal = artifacts.length > timedArtifacts.length;
+
   const elapsedLine = (() => {
-    if (artifacts.length === 0) return null;
+    if (timedArtifacts.length === 0) return null;
     const start = Date.parse(run.created_at);
-    const end = Date.parse(artifacts[artifacts.length - 1].created_at);
+    const end = Date.parse(timedArtifacts[timedArtifacts.length - 1].created_at);
     if (Number.isNaN(start) || Number.isNaN(end)) return null;
-    return `${artifacts.length} phase${artifacts.length === 1 ? "" : "s"} · ${formatDuration(end - start)} elapsed`;
+    const base = `${timedArtifacts.length} phase${timedArtifacts.length === 1 ? "" : "s"} · ${formatDuration(end - start)} elapsed`;
+    return hasProposal ? `${base} + proposal` : base;
   })();
 
   return `
@@ -115,7 +126,7 @@ function buildFooter(run: PipelineRun, artifacts: PhaseArtifact[]): string {
       <p class="crew-line">Assembled by <strong>${escapeHtml(crewLine)}</strong>${
         elapsedLine ? ` — ${elapsedLine}` : ""
       }</p>
-      <p class="crew-pitch">Five specialists. Zero handoffs. One document your next client actually reads.</p>
+      <p class="crew-pitch">Five specialists analyze. A sixth writes the proposal — and still isn't allowed near the numbers. Zero handoffs. One document your next client actually reads.</p>
       <p class="crew-footnote">run ${escapeHtml(run.id)} · DABBA Studio</p>
     </footer>`;
 }
@@ -342,7 +353,7 @@ section.phase {
   font-size: 20px;
   line-height: 1.3;
   color: var(--bg);
-  max-width: 480px;
+  max-width: 560px;
   margin: 20px 0 0;
 }
 .crew-footnote {
