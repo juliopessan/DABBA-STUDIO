@@ -8,7 +8,7 @@ import { initAgents, listAgents, getAgent } from "./agents/registry.js";
 import { loadMermaidRuntime } from "./pipeline/mermaidRuntime.js";
 import { runAgentCommand } from "./llm/provider.js";
 import { extractText, isSupportedExtension } from "./upload/extractText.js";
-import { startPipeline, runProposal, PIPELINE_STEPS } from "./pipeline/orchestrator.js";
+import { startPipeline, runProposal, proposalReportPath, PIPELINE_STEPS } from "./pipeline/orchestrator.js";
 import { getRun, getArtifacts } from "./db/sqlite.js";
 import { seedBenchmarkRates, listRates, setRate, getRate, isBenchmarkOnly } from "./db/rateCard.js";
 import { priceRun, GRADES, LOCATIONS } from "./pipeline/pricing.js";
@@ -44,7 +44,17 @@ app.get("/health", (_req, res) => {
 });
 
 app.get("/agents", (_req, res) => {
-  res.json(listAgents().map(({ id, name, commands }) => ({ id, name, commands })));
+  // Nick (proposal) is deliberately excluded from the generic single-command
+  // grid: running his commands in isolation there produces bare narrative
+  // with no team or cost tables, since those are generated from the stored
+  // staffing plan and rate card — not from anything a lone `*executive` call
+  // has access to. The dedicated POST /pipeline/:id/proposal flow assembles
+  // the real document; `getAgent("proposal")` below still serves it.
+  res.json(
+    listAgents()
+      .filter((a) => a.id !== "proposal")
+      .map(({ id, name, commands }) => ({ id, name, commands }))
+  );
 });
 
 app.get("/agents/:id", (req, res) => {
@@ -124,10 +134,12 @@ app.get("/pipeline/:id", (req, res) => {
     return;
   }
   const artifacts = getArtifacts(req.params.id);
+  const hasProposal = artifacts.some((a) => a.phase === "proposal");
   res.json({
     run,
     artifacts: artifacts.map(({ output, ...rest }) => ({ ...rest, outputPreview: output.slice(0, 240) })),
     reportUrl: run.status === "done" ? `/pipeline/${run.id}/report.html` : null,
+    proposalReportUrl: hasProposal ? `/pipeline/${run.id}/proposal.html` : null,
   });
 });
 
@@ -139,6 +151,25 @@ app.get("/pipeline/:id/report.html", (req, res) => {
   }
   res.setHeader("content-type", "text/html; charset=utf-8");
   res.send(readFileSync(run.report_path, "utf-8"));
+});
+
+// A separate document from report.html (see htmlReport.ts's buildProposalReport
+// comment for why): the client-facing proposal should not sit behind the same
+// link as the internal five-phase trace, and regenerating one must never
+// silently rewrite the other.
+app.get("/pipeline/:id/proposal.html", (req, res) => {
+  const run = getRun(req.params.id);
+  if (!run) {
+    res.status(404).send("Run not found.");
+    return;
+  }
+  const filePath = proposalReportPath(run.id);
+  if (!existsSync(filePath)) {
+    res.status(404).send("No proposal has been generated for this run yet.");
+    return;
+  }
+  res.setHeader("content-type", "text/html; charset=utf-8");
+  res.send(readFileSync(filePath, "utf-8"));
 });
 
 app.get("/rate-card", (_req, res) => {
@@ -195,7 +226,7 @@ app.post("/pipeline/:id/proposal", async (req, res) => {
     res.json({
       proposal: { ...artifact, output: undefined, length: artifact.output.length },
       costing,
-      reportUrl: `/pipeline/${run.id}/report.html`,
+      reportUrl: `/pipeline/${run.id}/proposal.html`,
     });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });

@@ -64,6 +64,7 @@ export interface PipelineStatus {
   run: PipelineRun;
   artifacts: PipelineArtifact[];
   reportUrl: string | null;
+  proposalReportUrl: string | null;
 }
 
 export async function startPipeline(projectName: string, rfpText: string): Promise<{ runId: string; steps: PipelineStep[] }> {
@@ -86,6 +87,37 @@ export async function getPipelineStatus(runId: string): Promise<PipelineStatus> 
 
 export function pipelineReportUrl(runId: string): string {
   return `${API_BASE}/pipeline/${runId}/report.html`;
+}
+
+export function pipelineProposalReportUrl(runId: string): string {
+  return `${API_BASE}/pipeline/${runId}/proposal.html`;
+}
+
+export type Location = "onshore" | "nearshore" | "offshore";
+
+export interface Costing {
+  total: number;
+  currency: string;
+  benchmarkOnly: boolean;
+}
+
+export interface ProposalResult {
+  costing: Costing;
+  reportUrl: string;
+}
+
+// Nick reads the finished analysis and prices it against the stored staffing
+// plan and rate card — never a raw single-command call, which is what left
+// the generic agent grid producing narrative with no team or cost tables.
+export async function generateProposal(runId: string, location: Location): Promise<ProposalResult> {
+  const res = await fetch(`${API_BASE}/pipeline/${runId}/proposal`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ location }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? `POST /pipeline/${runId}/proposal failed: ${res.status}`);
+  return { costing: data.costing, reportUrl: `${API_BASE}${data.reportUrl}` };
 }
 
 export async function runCommand(

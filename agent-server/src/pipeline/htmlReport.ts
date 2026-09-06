@@ -79,11 +79,30 @@ function formatDuration(ms: number): string {
   return m > 0 ? `${m}m ${String(s).padStart(2, "0")}s` : `${s}s`;
 }
 
+// Shared shell for the crew footer both documents end on — the mark, the
+// eyebrow, the project name, then a caller-supplied line of substance
+// (who did the work and how long it took, in whatever terms make sense for
+// that document) and a closing pitch.
+function footerShell(run: PipelineRun, creditLine: string, pitch: string): string {
+  return `
+    <footer class="report-footer">
+      <div class="crew-mark" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <p class="crew-eyebrow">Prepared for</p>
+      <h2 class="crew-project">${escapeHtml(run.project_name)}</h2>
+      <p class="crew-line">${creditLine}</p>
+      <p class="crew-pitch">${escapeHtml(pitch)}</p>
+      <p class="crew-footnote">run ${escapeHtml(run.id)} · DABBA Studio</p>
+    </footer>`;
+}
+
 /**
- * Builds the personalised crew footer: which agents actually touched this
- * run (not a static list of all five — a partial or single-agent run should
- * only credit who was really there), the project name, and the elapsed time
- * from the run's start to its last artifact.
+ * Builds the personalised crew footer for the five-phase analysis: which
+ * agents actually touched this run (not a static list of all five — a
+ * partial or single-agent run should only credit who was really there), the
+ * project name, and the elapsed time from the run's start to its last
+ * artifact.
  */
 function buildFooter(run: PipelineRun, artifacts: PhaseArtifact[]): string {
   const crew: string[] = [];
@@ -98,38 +117,36 @@ function buildFooter(run: PipelineRun, artifacts: PhaseArtifact[]): string {
         ? crew[0]
         : `${crew.slice(0, -1).join(", ")} and ${crew[crew.length - 1]}`;
 
-  // The proposal is an opt-in terminal step run whenever the user asks for it
-  // — hours, days or weeks after the analysis finished, not as a continuation
-  // of the timed run. Including it in the elapsed calculation produced
-  // "31579m 46s elapsed" on a real report: the gap between the analysis
-  // finishing and someone later requesting a proposal, presented as if it
-  // were pipeline execution time. Duration is measured over the analysis
-  // phases only; the proposal is credited in the crew line but not timed.
-  const timedArtifacts = artifacts.filter((a) => a.phase !== "proposal");
-  const hasProposal = artifacts.length > timedArtifacts.length;
-
   const elapsedLine = (() => {
-    if (timedArtifacts.length === 0) return null;
+    if (artifacts.length === 0) return null;
     const start = Date.parse(run.created_at);
-    const end = Date.parse(timedArtifacts[timedArtifacts.length - 1].created_at);
+    const end = Date.parse(artifacts[artifacts.length - 1].created_at);
     if (Number.isNaN(start) || Number.isNaN(end)) return null;
-    const base = `${timedArtifacts.length} phase${timedArtifacts.length === 1 ? "" : "s"} · ${formatDuration(end - start)} elapsed`;
-    return hasProposal ? `${base} + proposal` : base;
+    return `${artifacts.length} phase${artifacts.length === 1 ? "" : "s"} · ${formatDuration(end - start)} elapsed`;
   })();
 
-  return `
-    <footer class="report-footer">
-      <div class="crew-mark" aria-hidden="true">
-        <span></span><span></span><span></span><span></span>
-      </div>
-      <p class="crew-eyebrow">Prepared for</p>
-      <h2 class="crew-project">${escapeHtml(run.project_name)}</h2>
-      <p class="crew-line">Assembled by <strong>${escapeHtml(crewLine)}</strong>${
-        elapsedLine ? ` — ${elapsedLine}` : ""
-      }</p>
-      <p class="crew-pitch">Five specialists analyze. A sixth writes the proposal — and still isn't allowed near the numbers. Zero handoffs. One document your next client actually reads.</p>
-      <p class="crew-footnote">run ${escapeHtml(run.id)} · DABBA Studio</p>
-    </footer>`;
+  const creditLine = `Assembled by <strong>${escapeHtml(crewLine)}</strong>${elapsedLine ? ` — ${elapsedLine}` : ""}`;
+  return footerShell(
+    run,
+    creditLine,
+    "Five specialists analyze. A sixth writes the proposal — and still isn't allowed near the numbers. Zero handoffs. One document your next client actually reads."
+  );
+}
+
+/**
+ * The proposal's footer says when it was generated rather than an elapsed
+ * duration — "elapsed" implies a start point, and the only honest one
+ * available (the analysis run's created_at) can be days or weeks before the
+ * proposal was requested. A single date has no such implication.
+ */
+function buildProposalFooter(run: PipelineRun, artifact: PhaseArtifact): string {
+  const generatedAt = new Date(artifact.created_at).toLocaleString("en-US");
+  const creditLine = `Assembled by <strong>Nick</strong> — generated ${escapeHtml(generatedAt)}`;
+  return footerShell(
+    run,
+    creditLine,
+    "Nick assembles this from the stored analysis and the rate card. He never calculates, estimates or rounds a number himself — every figure above traces to an earlier artifact."
+  );
 }
 
 // The `*trace` command asks the model to audit its own traceability, and it
@@ -224,39 +241,10 @@ ${runtime}
 </script>`;
 }
 
-export function buildConsolidatedReport(run: PipelineRun, artifacts: PhaseArtifact[]): string {
-  const generatedAt = new Date().toLocaleString("en-US");
-
-  const toc = artifacts
-    .map((a, i) => `<li><a href="#fase-${i}">${PHASE_LABELS[a.phase] ?? a.phase}</a></li>`)
-    .join("\n");
-
-  const sections = artifacts
-    .map(
-      (a, i) => `
-    <section class="phase" id="fase-${i}">
-      <div class="phase-header">
-        <span class="phase-index">${String(i + 1).padStart(2, "0")}</span>
-        <div>
-          <h2>${PHASE_LABELS[a.phase] ?? a.phase}</h2>
-          <p class="phase-meta">@${a.agent_id} · ${escapeHtml(a.command)} · ${a.provider ?? "?"} · ${a.model ?? "?"}</p>
-        </div>
-      </div>
-      <div class="phase-content">
-        ${markdownToHtml(a.output)}
-      </div>
-    </section>`
-    )
-    .join("\n");
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>DABBA Studio — ${escapeHtml(run.project_name)}</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-${FAVICON}
-<style>
+// Shared by every report this module produces (the five-phase analysis and
+// the standalone proposal) so the two documents are visibly the same family
+// without duplicating a 150-line stylesheet between them.
+const REPORT_STYLE = `
 @import url("https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap");
 
 :root {
@@ -418,10 +406,79 @@ section.phase {
   color: rgba(242, 239, 232, 0.45);
   margin: 16px 0 0;
 }
-</style>
+.proposal-tag {
+  display: inline-block;
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  font-size: 11px;
+  color: var(--clay-dark);
+  border: 1px solid var(--clay);
+  border-radius: 2px;
+  padding: 4px 10px;
+  margin: 0 0 18px;
+}
+`;
+
+/**
+ * The shell every report in this module shares: head (title, favicon, style),
+ * the `.wrap`-padded body, and the Mermaid runtime script placed last so it
+ * never races the DOM it scans. `bodyHtml` is everything between
+ * `<div class="wrap">` and its closing tag; `includeMermaid` is false for the
+ * proposal, which the persona never populates with diagrams (see
+ * proposal.md's "no figures" rule extended to no drawings either) — omitting
+ * the ~3.4MB runtime keeps a document that is pure prose and tables small.
+ */
+function renderShell(opts: { title: string; bodyHtml: string; includeMermaid: boolean }): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(opts.title)}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+${FAVICON}
+<style>${REPORT_STYLE}</style>
 </head>
 <body>
   <div class="wrap">
+    ${opts.bodyHtml}
+  </div>
+${opts.includeMermaid ? buildMermaidScript() : ""}
+</body>
+</html>`;
+}
+
+export function buildConsolidatedReport(run: PipelineRun, allArtifacts: PhaseArtifact[]): string {
+  // The proposal is a separate deliverable with its own document (see
+  // buildProposalReport below) — it never appears inside the five-phase
+  // analysis, regardless of what the caller passes in, so this filter is the
+  // one place that invariant is enforced rather than trusted to every caller.
+  const artifacts = allArtifacts.filter((a) => a.phase !== "proposal");
+  const generatedAt = new Date().toLocaleString("en-US");
+
+  const toc = artifacts
+    .map((a, i) => `<li><a href="#fase-${i}">${PHASE_LABELS[a.phase] ?? a.phase}</a></li>`)
+    .join("\n");
+
+  const sections = artifacts
+    .map(
+      (a, i) => `
+    <section class="phase" id="fase-${i}">
+      <div class="phase-header">
+        <span class="phase-index">${String(i + 1).padStart(2, "0")}</span>
+        <div>
+          <h2>${PHASE_LABELS[a.phase] ?? a.phase}</h2>
+          <p class="phase-meta">@${a.agent_id} · ${escapeHtml(a.command)} · ${a.provider ?? "?"} · ${a.model ?? "?"}</p>
+        </div>
+      </div>
+      <div class="phase-content">
+        ${markdownToHtml(a.output)}
+      </div>
+    </section>`
+    )
+    .join("\n");
+
+  const bodyHtml = `
     <header>
       <h1>DABBA <span>Studio</span></h1>
       <p class="subtitle">${escapeHtml(run.project_name)} — consolidated pipeline document</p>
@@ -437,9 +494,43 @@ section.phase {
 
     ${sections}
 
-    ${buildFooter(run, artifacts)}
-  </div>
-${buildMermaidScript()}
-</body>
-</html>`;
+    ${buildFooter(run, artifacts)}`;
+
+  return renderShell({ title: `DABBA Studio — ${run.project_name}`, bodyHtml, includeMermaid: true });
+}
+
+/**
+ * The proposal's own document — separate from the five-phase analysis rather
+ * than appended to it (see the module comment on buildConsolidatedReport).
+ * Two different readers, two different documents: the analysis is an
+ * internal/technical trace of how the team reached its conclusions, while the
+ * proposal is the one artifact meant to leave the building and reach a
+ * client's inbox. Merging them meant every regeneration of one silently
+ * rewrote the other, and a client-facing document sat behind the same link
+ * as the traceability notices and phase-by-phase working.
+ */
+export function buildProposalReport(run: PipelineRun, artifact: PhaseArtifact): string {
+  const generatedAt = new Date().toLocaleString("en-US");
+
+  const bodyHtml = `
+    <header>
+      <h1>DABBA <span>Studio</span></h1>
+      <span class="proposal-tag">Commercial Proposal</span>
+      <p class="subtitle">${escapeHtml(run.project_name)}</p>
+      <p class="timestamp">Generated ${generatedAt} · run ${run.id}</p>
+    </header>
+
+    <section class="phase">
+      <div class="phase-content">
+        ${markdownToHtml(artifact.output)}
+      </div>
+    </section>
+
+    ${buildProposalFooter(run, artifact)}`;
+
+  return renderShell({
+    title: `DABBA Studio — Commercial Proposal — ${run.project_name}`,
+    bodyHtml,
+    includeMermaid: false,
+  });
 }

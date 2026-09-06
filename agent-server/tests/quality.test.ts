@@ -133,10 +133,13 @@ describe("report shell", () => {
 });
 
 describe("report footer duration", () => {
-  test("a proposal run days after the analysis does not corrupt the elapsed time", async () => {
-    // Measured on a real run: the proposal is an opt-in terminal step,
-    // requested whenever — the gap between analysis finishing and someone
-    // asking for a proposal later showed up as "31579m 46s elapsed".
+  test("the proposal, requested days after the analysis, never reaches the analysis document at all", async () => {
+    // Measured on a real run: the proposal used to be re-merged into
+    // report.html, and the gap between analysis finishing and someone asking
+    // for a proposal three weeks later showed up as "31579m 46s elapsed".
+    // The fix is architectural, not arithmetic — see buildProposalReport's
+    // module comment: the proposal is now a wholly separate document, so it
+    // cannot corrupt this footer because it is never in this artifact list.
     const { buildConsolidatedReport } = await import("../src/pipeline/htmlReport.js");
     const run = {
       id: "run-1",
@@ -148,7 +151,8 @@ describe("report footer duration", () => {
     const artifacts = [
       artifact("discovery", "# Report"),
       { ...artifact("business-case", "# Analysis"), created_at: "2026-01-01T10:07:15.000Z" },
-      // Requested three weeks later.
+      // Requested three weeks later — must be filtered out, not merely timed
+      // correctly, since it belongs on its own document now.
       { ...artifact("proposal", "# Proposal"), agent_id: "proposal", created_at: "2026-01-22T09:00:00.000Z" },
     ];
     const html = buildConsolidatedReport(run, artifacts);
@@ -156,7 +160,24 @@ describe("report footer duration", () => {
 
     assert.match(line, /7m 15s elapsed/, "duration must reflect the analysis phases only");
     assert.doesNotMatch(line, /\d{4,}m/, "no multi-day gap disguised as minutes");
-    assert.match(line, /\+ proposal/, "the proposal must still be acknowledged");
-    assert.match(line, /Nick/, "and its author credited");
+    assert.doesNotMatch(html, /Nick/, "the proposal's own author has no place in the analysis document");
+    assert.doesNotMatch(html, /Commercial Proposal/, "nor does the proposal's content");
+  });
+
+  test("the proposal's own report states when it was generated, not an elapsed duration", async () => {
+    const { buildProposalReport } = await import("../src/pipeline/htmlReport.js");
+    const run = {
+      id: "run-1",
+      project_name: "Test",
+      status: "done" as const,
+      created_at: "2026-01-01T10:00:00.000Z",
+      report_path: null,
+    };
+    const proposal = { ...artifact("proposal", "# Proposal"), agent_id: "proposal", created_at: "2026-01-22T09:00:00.000Z" };
+    const html = buildProposalReport(run, proposal);
+    const line = html.match(/<p class="crew-line">(.*?)<\/p>/)?.[1] ?? "";
+
+    assert.match(line, /Nick/, "credited as the author");
+    assert.doesNotMatch(line, /elapsed/, "no elapsed-duration framing for a document assembled long after the analysis");
   });
 });

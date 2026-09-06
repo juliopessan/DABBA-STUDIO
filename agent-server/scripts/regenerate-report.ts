@@ -1,5 +1,6 @@
 import { getRun, getArtifacts, updateRunStatus } from "../src/db/sqlite.js";
-import { buildConsolidatedReport } from "../src/pipeline/htmlReport.js";
+import { buildConsolidatedReport, buildProposalReport } from "../src/pipeline/htmlReport.js";
+import { proposalReportPath } from "../src/pipeline/orchestrator.js";
 import { loadMermaidRuntime } from "../src/pipeline/mermaidRuntime.js";
 import { writeFileSync } from "node:fs";
 
@@ -17,3 +18,12 @@ const html = buildConsolidatedReport(run, artifacts);
 writeFileSync(run.report_path!, html, "utf-8");
 updateRunStatus(runId, "done", run.report_path!);
 console.log("regenerado:", run.report_path);
+
+// The proposal is a separate document (see htmlReport.ts) — only regenerated
+// if this run actually has one, since most runs never request a proposal.
+const proposalArtifact = artifacts.find((a) => a.phase === "proposal");
+if (proposalArtifact) {
+  const path = proposalReportPath(runId);
+  writeFileSync(path, buildProposalReport(run, proposalArtifact), "utf-8");
+  console.log("regenerado (proposta):", path);
+}

@@ -31,6 +31,15 @@ Speculation lives here. Once something is proven by a real run it graduates to
 - [x] Rate card in SQLite, seeded with public market benchmarks.
 - [x] Deterministic costing from the stored staffing plan.
 - [x] Optional terminal `proposal` phase — reads the analysis, never writes to it.
+- [x] **Separate document, not a section re-merged into report.html.** The
+      proposal used to rewrite the same `report.html` the five-phase analysis
+      lives in — every regeneration of one silently rewrote the other, and a
+      client-facing document sat behind the same link as internal
+      traceability notices. Now `GET /pipeline/:id/proposal.html` serves its
+      own file; the individual-agent grid no longer lists Nick either, since
+      a lone `*executive` call there has no access to the staffing plan or
+      rate card and only ever produced bare narrative with no team/cost
+      tables (the exact gap that prompted this fix).
 - [ ] **Enter the firm's real rate card.** Until then every total prints as an
       estimate rather than a quote. `PUT /rate-card`.
 - [ ] Location mix per role. Today the whole engagement prices at one location;

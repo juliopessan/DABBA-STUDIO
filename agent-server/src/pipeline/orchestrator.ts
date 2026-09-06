@@ -1,7 +1,7 @@
 import { getAgent } from "../agents/registry.js";
 import { runAgentCommand } from "../llm/provider.js";
 import { createRun, saveArtifact, updateRunStatus, getArtifacts, getRun, type PipelineRun, type PhaseArtifact } from "../db/sqlite.js";
-import { buildConsolidatedReport } from "./htmlReport.js";
+import { buildConsolidatedReport, buildProposalReport } from "./htmlReport.js";
 import { unwrapOuterCodeFence } from "./markdown.js";
 import { looksLikePersonaEcho } from "./quality.js";
 import { assembleProposal, PROPOSAL_COMMANDS } from "./proposal.js";
@@ -9,6 +9,14 @@ import type { Costing } from "./pricing.js";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { OUTPUT_DIR } from "../appPaths.js";
+
+// Deterministic from the run id — no DB column needed to track it (unlike
+// report_path, which predates the proposal and is looked up rather than
+// derived). Exported so index.ts's GET route uses the exact same path this
+// module writes to.
+export function proposalReportPath(runId: string): string {
+  return path.join(OUTPUT_DIR, `${runId}-proposal.html`);
+}
 
 // Official DABBA pipeline order (Discovery → PRD → Architect → Backlog →
 // Business Case), documented in the original framework's CLAUDE.md — each
@@ -308,11 +316,10 @@ export async function runProposal(runId: string, costing: Costing): Promise<Phas
     undefined
   );
 
-  // Re-render so the proposal appears in the delivered document.
-  const refreshed = getArtifacts(runId);
-  const reportPath = path.join(OUTPUT_DIR, `${runId}.html`);
-  writeFileSync(reportPath, buildConsolidatedReport(run, refreshed), "utf-8");
-  updateRunStatus(runId, "done", reportPath);
+  // The proposal is its own document, not a section rewritten into
+  // report.html (see buildProposalReport's own comment for why) — the
+  // five-phase analysis at report_path is left untouched.
+  writeFileSync(proposalReportPath(runId), buildProposalReport(run, artifact), "utf-8");
 
   return artifact;
 }

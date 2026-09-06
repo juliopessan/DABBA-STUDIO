@@ -2,9 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   extractTextFromFile,
+  generateProposal,
   getPipelineStatus,
+  pipelineProposalReportUrl,
   pipelineReportUrl,
   startPipeline,
+  type Location,
   type PipelineArtifact,
 } from "../api";
 import { useFileDrop } from "../useFileDrop";
@@ -39,6 +42,15 @@ export default function PipelineRunner() {
   const [elapsed, setElapsed] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Nick's step, opt-in after the analysis is done — reads the finished run
+  // rather than joining it, so it is tracked entirely separately from the
+  // pipeline's own status/artifacts state above.
+  const [proposalLocation, setProposalLocation] = useState<Location>("onshore");
+  const [proposalStatus, setProposalStatus] = useState<"idle" | "running" | "done" | "failed">("idle");
+  const [proposalError, setProposalError] = useState<string | null>(null);
+  const [proposalReportPath, setProposalReportPath] = useState<string | null>(null);
+  const [proposalBenchmarkOnly, setProposalBenchmarkOnly] = useState(false);
+
   useEffect(() => {
     if (!runId || status !== "running") return;
     // A one-off network failure (common in the native webview, or a GET
@@ -54,6 +66,10 @@ export default function PipelineRunner() {
         consecutiveFailures = 0;
         setArtifacts(data.artifacts);
         setRunStartedAt(data.run.created_at);
+        if (data.proposalReportUrl) {
+          setProposalStatus("done");
+          setProposalReportPath(pipelineProposalReportUrl(runId));
+        }
         if (data.run.status !== "running") {
           setStatus(data.run.status);
           clearInterval(interval);
@@ -106,12 +122,30 @@ export default function PipelineRunner() {
     setArtifacts([]);
     setRunStartedAt(null);
     setElapsed(0);
+    setProposalStatus("idle");
+    setProposalError(null);
+    setProposalReportPath(null);
     try {
       const { runId } = await startPipeline(projectName || "Untitled project", rfpText);
       setRunId(runId);
       setStatus("running");
     } catch (err) {
       setError((err as Error).message);
+    }
+  }
+
+  async function handleGenerateProposal() {
+    if (!runId) return;
+    setProposalStatus("running");
+    setProposalError(null);
+    try {
+      const { costing, reportUrl } = await generateProposal(runId, proposalLocation);
+      setProposalBenchmarkOnly(costing.benchmarkOnly);
+      setProposalReportPath(reportUrl);
+      setProposalStatus("done");
+    } catch (err) {
+      setProposalError((err as Error).message);
+      setProposalStatus("failed");
     }
   }
 
@@ -413,6 +447,109 @@ export default function PipelineRunner() {
                     >
                       completed in {formatElapsed(elapsed)}
                     </span>
+
+                    {/* Nick's step — opt-in, reads this finished run rather
+                        than joining it. Kept in this same card, right after
+                        the analysis link, rather than in the generic
+                        single-command agent grid: a lone `*executive` call
+                        there has no access to the staffing plan or rate
+                        card, so it can only ever produce bare narrative with
+                        no team or cost tables. */}
+                    <div
+                      style={{
+                        marginTop: 20,
+                        paddingTop: 20,
+                        borderTop: "1px solid var(--dabba-border)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span className="dabba-eyebrow" style={{ flexShrink: 0 }}>
+                        06 · Nick
+                      </span>
+
+                      {proposalStatus !== "done" && (
+                        <select
+                          value={proposalLocation}
+                          onChange={(e) => setProposalLocation(e.target.value as Location)}
+                          disabled={proposalStatus === "running"}
+                          style={{
+                            padding: "9px 10px",
+                            borderRadius: "var(--dabba-radius-sm)",
+                            border: "1px solid var(--dabba-border)",
+                            fontSize: 13,
+                            background: "var(--dabba-bg)",
+                          }}
+                        >
+                          <option value="onshore">Onshore</option>
+                          <option value="nearshore">Nearshore</option>
+                          <option value="offshore">Offshore</option>
+                        </select>
+                      )}
+
+                      {proposalStatus === "done" && proposalReportPath ? (
+                        <>
+                          <motion.button
+                            onClick={() => openExternal(proposalReportPath)}
+                            whileHover={{ y: -1.5 }}
+                            whileTap={{ scale: 0.97 }}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "10px 18px",
+                              borderRadius: "var(--dabba-radius-sm)",
+                              border: "1px solid var(--dabba-clay)",
+                              background: "transparent",
+                              color: "var(--dabba-clay-dark)",
+                              fontSize: 13.5,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <ExternalIcon />
+                            Open proposal report
+                          </motion.button>
+                          {proposalBenchmarkOnly && (
+                            <span style={{ fontSize: 12, color: "var(--dabba-ink-faint)" }}>
+                              priced on market benchmarks — not a quote
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          onClick={handleGenerateProposal}
+                          disabled={proposalStatus === "running"}
+                        >
+                          {proposalStatus === "running" ? <ThinkingDots size={5} /> : <PlayIcon />}
+                          {proposalStatus === "running" ? "Assembling proposal…" : "Generate commercial proposal"}
+                        </Button>
+                      )}
+                    </div>
+
+                    <AnimatePresence>
+                      {proposalError && (
+                        <motion.p
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 7,
+                            color: "var(--dabba-clay-dark)",
+                            marginTop: 10,
+                            fontSize: 13,
+                          }}
+                        >
+                          <AlertIcon size={14} />
+                          {proposalError}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 )}
 
