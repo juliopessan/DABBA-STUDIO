@@ -1,5 +1,6 @@
 {
-  "buildCommand": false,
-  "installCommand": false,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "",
+  "installCommand": "",
   "outputDirectory": "."
 }
