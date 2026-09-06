@@ -204,7 +204,7 @@ Three providers are supported. When several keys are present and
 # agent-server/.env
 GEMINI_API_KEY=AIza...
 # optional: override the model
-# DABBA_GEMINI_MODEL=gemini-3.7-flash
+# DABBA_GEMINI_MODEL=gemini-3.8-flash
 ```
 
 Get a key at [Google AI Studio](https://aistudio.google.com/apikey).

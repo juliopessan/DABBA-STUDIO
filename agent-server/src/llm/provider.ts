@@ -58,7 +58,7 @@ export interface RunResult {
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
-const DEFAULT_GEMINI_MODEL = "gemini-3.7-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 function buildUserMessage(command: string, input?: string): string {
